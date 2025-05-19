@@ -158,11 +158,19 @@ namespace HRMS.Application.Services
             var employee = await _context.Employees
                 .FirstOrDefaultAsync(e => e.EmployeeId == enrollNumber);
 
+            if (employee == null && int.TryParse(enrollNumber, out int enrollId))
+            {
+                employee = await _context.Employees
+                    .FirstOrDefaultAsync(e => e.EmployeeId == enrollId.ToString());
+            }
+
             if (employee == null)
             {
-                _logger.LogWarning($"No employee found with ID: {enrollNumber}");
+                _logger.LogWarning($"No employee found with Enrollment Number: {enrollNumber}");
                 return;
             }
+
+            var attendanceDate = recordTime.Date;
 
             // Check if this is a check-in or check-out
             if (inOutMode == 0) // Check-in

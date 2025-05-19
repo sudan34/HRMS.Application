@@ -1,0 +1,66 @@
+﻿@model List<AttendanceReportViewModel>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Employee</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center">Late</th>
+                        <th class="text-center">Absent</th>
+                        <th class="text-center">Percentage</th>
+                        <th class="text-center">Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@item.FullName</strong><br>
+                                <small class="text-muted">@item.Email</small>
+                            </td>
+                            <td class="text-center">@item.TotalPresent</td>
+                            <td class="text-center">@item.TotalLate</td>
+                            <td class="text-center">@item.TotalAbsent</td>
+                            <td class="text-center">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-success"
+                                         role="progressbar"
+                                         style="width: @item.AttendancePercentage%"
+                                         aria-valuenow="@item.AttendancePercentage"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100">
+                                        @Math.Round(item.AttendancePercentage, 1)%
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <a href="@Url.Action("EmployeeReport", new { employeeId = item.EmployeeId, fromDate = ViewBag.FromDate, toDate = ViewBag.ToDate })"
+                                   class="btn btn-sm btn-outline-info">
+                                    <i class="fas fa-search"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                    <tr class="font-weight-bold">
+                        <td>Totals</td>
+                        <td class="text-center">@Model.Sum(x => x.TotalPresent)</td>
+                        <td class="text-center">@Model.Sum(x => x.TotalLate)</td>
+                        <td class="text-center">@Model.Sum(x => x.TotalAbsent)</td>
+                        <td class="text-center">
+                            @{
+                                var totalPercentage = Model.Any() ?
+                                Model.Average(x => x.AttendancePercentage) : 0;
+                            }
+                            @Math.Round(totalPercentage, 1)%
+                        </td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

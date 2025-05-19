@@ -5,64 +5,216 @@
 }
 
 <div class="card">
-    <div class="card-header">
-        <div class="row">
+    <div class="card-header bg-primary text-white">
+        <div class="row align-items-center">
             <div class="col-md-6">
-                <h4>Attendance Records</h4>
+                <h4><i class="fas fa-calendar-check"></i> Attendance Records</h4>
             </div>
-            <div class="col-md-6 text-right">
-                <form method="get" class="form-inline">
-                    <div class="form-group mr-2">
-                        <input type="date" name="fromDate" value="@ViewBag.FromDate.ToString("yyyy-MM-dd")" class="form-control">
+            <div class="col-md-6 d-flex justify-content-end">
+                <form method="get" class="row g-2">
+                    <div class="col-auto">
+                        <label class="col-form-label">From:</label>
                     </div>
-                    <div class="form-group mr-2">
-                        <input type="date" name="toDate" value="@ViewBag.ToDate.ToString("yyyy-MM-dd")" class="form-control">
+                    <div class="col-auto">
+                        <input type="date" name="fromDate" value="@ViewBag.FromDate.ToString("yyyy-MM-dd")" class="form-control form-control-sm">
                     </div>
-                    <button type="submit" class="btn btn-primary">Filter</button>
+                    <div class="col-auto">
+                        <label class="col-form-label">To:</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" name="toDate" value="@ViewBag.ToDate.ToString("yyyy-MM-dd")" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-light btn-sm">
+                            <i class="fas fa-filter"></i> Filter
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
+
     <div class="card-body">
         @if (TempData["SuccessMessage"] != null)
         {
-            <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @TempData["SuccessMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
         }
         @if (TempData["ErrorMessage"] != null)
         {
-            <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                @TempData["ErrorMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
         }
 
-        <div class="mb-3">
+        <div class="mb-4 d-flex justify-content-between">
             <form method="post" asp-action="SyncWithDevice">
                 <button type="submit" class="btn btn-success">
-                    <i class="fas fa-sync"></i> Sync with Device
+                    <i class="fas fa-sync-alt"></i> Sync with Device
                 </button>
             </form>
+
+            <a href="@Url.Action("ExportToExcel", new { fromDate = ViewBag.FromDate, toDate = ViewBag.ToDate })" class="btn btn-info">
+                <i class="fas fa-file-excel"></i> Export to Excel
+            </a>
         </div>
 
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Date</th>
-                    <th>Check In</th>
-                    <th>Check Out</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in Model)
-                {
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-striped" id="attendanceTable">
+                <thead class="table-dark">
                     <tr>
-                        <td>@item.Employee.FirstName @item.Employee.LastName</td>
-                        <td>@item.CheckIn.ToShortDateString()</td>
-                        <td>@item.CheckIn.ToShortTimeString()</td>
-                        <td>@(item.CheckOut?.ToShortTimeString() ?? "-")</td>
-                        <td>@item.Status</td>
+                        <th>Employee</th>
+                        <th>Date</th>
+                        <th>Check In</th>
+                        <th>Check Out</th>
+                        <th>Working Hours</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-light rounded-circle me-2 p-2 text-center" style="width:40px; height:40px; line-height:30px;">
+                                        <span class="fw-bold">@item.Employee.FirstName[0]@item.Employee.LastName[0]</span>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">@item.Employee.FirstName @item.Employee.LastName</h6>
+                                        <small class="text-muted">@item.Employee.EmployeeId</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>@item.CheckIn.ToString("dd MMM yyyy")</td>
+                            <td>@item.CheckIn.ToString("hh:mm tt")</td>
+                            <td>@(item.CheckOut?.ToString("hh:mm tt") ?? "-")</td>
+                            <td>
+                                @if (item.CheckOut.HasValue)
+                                {
+                                    var duration = item.CheckOut.Value - item.CheckIn;
+                                    @($"{duration.Hours}h {duration.Minutes}m")
+                                }
+                                else
+                                {
+                                    @("-")
+                                }
+                            </td>
+                            <td>
+                                <span class="badge @GetStatusBadgeClass(item.Status)">
+                                    @item.Status
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editModal"
+                                        data-id="@item.Id"
+                                        data-checkin="@item.CheckIn.ToString("yyyy-MM-ddTHH:mm")"
+                                        data-checkout="@item.CheckOut?.ToString("yyyy-MM-ddTHH:mm")"
+                                        data-status="@item.Status">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="Edit" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel">Edit Attendance Record</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editId" name="Id" />
+                    <div class="mb-3">
+                        <label for="editCheckIn" class="form-label">Check In</label>
+                        <input type="datetime-local" class="form-control" id="editCheckIn" name="CheckIn">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCheckOut" class="form-label">Check Out</label>
+                        <input type="datetime-local" class="form-control" id="editCheckOut" name="CheckOut">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editStatus" class="form-label">Status</label>
+                        <select class="form-select" id="editStatus" name="Status">
+                            <option value="0">Present</option>
+                            <option value="1">Late</option>
+                            <option value="2">Absent</option>
+                            <option value="3">On Leave</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Card -->
+<div class="card mt-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Attendance Summary</h5>
+    </div>
+    <div class="card-body">
+        @await Component.InvokeAsync("AttendanceReport", new {
+        fromDate = ViewBag.FromDate,
+                toDate = ViewBag.ToDate
+                })
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#attendanceTable').DataTable({
+                responsive: true,
+                dom: '<"top"lf>rt<"bottom"ip>',
+                pageLength: 25
+            });
+
+            var editModal = document.getElementById('editModal');
+            editModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                var id = button.getAttribute('data-id');
+                var checkIn = button.getAttribute('data-checkin');
+                var checkOut = button.getAttribute('data-checkout');
+                var status = button.getAttribute('data-status');
+
+                editModal.querySelector('#editId').value = id;
+                editModal.querySelector('#editCheckIn').value = checkIn;
+                editModal.querySelector('#editCheckOut').value = checkOut || '';
+                editModal.querySelector('#editStatus').value = status;
+            });
+        });
+    </script>
+}
+
+@functions {
+    public string GetStatusBadgeClass(AttendanceStatus status)
+    {
+        return status switch
+        {
+            AttendanceStatus.Present => "bg-success",
+            AttendanceStatus.Late => "bg-warning text-dark",
+            AttendanceStatus.Absent => "bg-danger",
+            AttendanceStatus.OnLeave => "bg-info text-dark",
+            _ => "bg-secondary"
+        };
+    }
+}
