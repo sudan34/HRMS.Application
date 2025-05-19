@@ -29,3 +29,12 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+#syncButton {
+    transition: all 0.3s ease;
+}
+
+.spinner-border {
+    margin-left: 8px;
+    vertical-align: middle;
+}

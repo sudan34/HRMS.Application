@@ -51,13 +51,20 @@
         }
 
         <div class="mb-4 d-flex justify-content-between">
-            <form method="post" asp-action="SyncWithDevice">
+            @*  <form method="post" asp-action="SyncWithDevice">
                 <button type="submit" class="btn btn-success">
                     <i class="fas fa-sync-alt"></i> Sync with Device
                 </button>
+            </form> *@
+            <form method="post" asp-action="SyncWithDevice" id="syncForm">
+                <button type="submit" class="btn btn-success" id="syncButton">
+                    <i class="fas fa-sync-alt"></i>
+                    <span id="syncText">Sync with Device</span>
+                    <span id="syncSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                </button>
             </form>
 
-            <a href="@Url.Action("ExportToExcel", new { fromDate = ViewBag.FromDate, toDate = ViewBag.ToDate })" class="btn btn-info">
+            <a href="@Url.Action("ExportToExcel", new { fromDate = ViewBag.FromDate, toDate = ViewBag.ToDate })" class="btn btn-info ">
                 <i class="fas fa-file-excel"></i> Export to Excel
             </a>
         </div>
@@ -180,8 +187,12 @@
 </div>
 
 @section Scripts {
+    <!-- SweetAlert2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <script>
         $(document).ready(function () {
+
             $('#attendanceTable').DataTable({
                 responsive: true,
                 dom: '<"top"lf>rt<"bottom"ip>',
@@ -200,6 +211,44 @@
                 editModal.querySelector('#editCheckIn').value = checkIn;
                 editModal.querySelector('#editCheckOut').value = checkOut || '';
                 editModal.querySelector('#editStatus').value = status;
+            });
+        });
+    </script>
+    <script>
+        $(document).ready(function () {
+            $('#syncForm').submit(function(e) {
+                e.preventDefault();
+
+                Swal.fire({
+                    title: 'Syncing with Device',
+                    html: 'Please wait while we sync attendance data...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+
+                        // Submit the form programmatically
+                        $.ajax({
+                            url: $(this).attr('action'),
+                            method: 'POST',
+                            success: function(response) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Sync Complete',
+                                    text: 'Attendance data has been successfully synced!'
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            },
+                            error: function() {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Sync Failed',
+                                    text: 'There was an error syncing with the device'
+                                });
+                            }
+                        });
+                    }
+                });
             });
         });
     </script>

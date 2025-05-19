@@ -1,7 +1,6 @@
 ﻿using HRMS.Application.Data;
 using HRMS.Application.Models;
 using HRMS.Application.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -41,12 +40,24 @@ namespace HRMS.Application.Controllers
         {
             try
             {
+                // If using AJAX, return JSON for better handling
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    await _zkDeviceService.SyncAttendanceDataAsync();
+                    return Json(new { success = true, message = "Sync completed successfully" });
+                }
+
+                // Regular form submission
                 await _zkDeviceService.SyncAttendanceDataAsync();
                 TempData["SuccessMessage"] = "Attendance data synced successfully!";
             }
             catch (Exception ex)
             {
                 TempData["ErrorMessage"] = $"Error syncing attendance data: {ex.Message}";
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = false, message = ex.Message });
+                }
             }
 
             return RedirectToAction(nameof(Index));
