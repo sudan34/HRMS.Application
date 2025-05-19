@@ -1,0 +1,68 @@
+﻿@model IEnumerable<Attendance>
+
+@{
+    ViewData["Title"] = "Attendance Records";
+}
+
+<div class="card">
+    <div class="card-header">
+        <div class="row">
+            <div class="col-md-6">
+                <h4>Attendance Records</h4>
+            </div>
+            <div class="col-md-6 text-right">
+                <form method="get" class="form-inline">
+                    <div class="form-group mr-2">
+                        <input type="date" name="fromDate" value="@ViewBag.FromDate.ToString("yyyy-MM-dd")" class="form-control">
+                    </div>
+                    <div class="form-group mr-2">
+                        <input type="date" name="toDate" value="@ViewBag.ToDate.ToString("yyyy-MM-dd")" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+        }
+
+        <div class="mb-3">
+            <form method="post" asp-action="SyncWithDevice">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-sync"></i> Sync with Device
+                </button>
+            </form>
+        </div>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Date</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.Employee.FirstName @item.Employee.LastName</td>
+                        <td>@item.CheckIn.ToShortDateString()</td>
+                        <td>@item.CheckIn.ToShortTimeString()</td>
+                        <td>@(item.CheckOut?.ToShortTimeString() ?? "-")</td>
+                        <td>@item.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <DirectoryRef Id="TARGETDIR">
+            <Component Id="zkemkeeper.dll" Guid="{C3DB9472-775A-4FD8-A200-A06D884AF07B}">
+                <File Id="zkemkeeper.dll" KeyPath="yes" Source="SourceDir\zkemkeeper.dll" />
+            </Component>
+        </DirectoryRef>
+    </Fragment>
+</Wix>
