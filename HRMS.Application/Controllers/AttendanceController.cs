@@ -112,22 +112,5 @@ namespace HRMS.Application.Controllers
 
             return View(employee);
         }
-
-        //public async Task<IActionResult> Reports()
-        //{
-        //    var reportData = await _context.Employees
-        //        .Include(e => e.Attendances)
-        //        .Select(e => new AttendanceReportViewModel
-        //        {
-        //            EmployeeName = $"{e.FirstName} {e.LastName}",
-        //            EmployeeId = e.EmployeeId,
-        //            PresentDays = e.Attendances.Count(a => a.Status == AttendanceStatus.Present),
-        //            AbsentDays = e.Attendances.Count(a => a.Status == AttendanceStatus.Absent),
-        //            LateDays = e.Attendances.Count(a => a.Status == AttendanceStatus.Late)
-        //        })
-        //        .ToListAsync();
-
-        //    return View(reportData);
-        //}
     }
 }
