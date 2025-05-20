@@ -17,7 +17,7 @@ namespace HRMS.Application.Controllers
         }
 
         // GET: Employee
-       // [Authorize(Policy = "HR")]
+        [Authorize(Roles = "HR")]
         public async Task<IActionResult> Index()
         {
             var employees = await _context.Employees
@@ -27,7 +27,7 @@ namespace HRMS.Application.Controllers
         }
 
         // GET: Employee/Details/5
-       // [Authorize(Roles = "Employee")]
+        [Authorize(Roles = "Employee,HR,SuperAdmin")]
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
@@ -35,14 +35,20 @@ namespace HRMS.Application.Controllers
                 return NotFound();
             }
 
-            // Employees can only view their own details unless they're HR/SuperAdmin
-           // var currentEmployeeId = int.Parse(User.FindFirst("EmployeeId").Value);
+            var employeeIdClaim = User.FindFirst("EmployeeId");
+            if (employeeIdClaim == null)
+            {
+                return Forbid();
+            }
+            // Get current logged-in user's EmployeeId from Claims
+            var currentEmployeeId = int.Parse(employeeIdClaim.Value);
+
             var isHRorAdmin = User.IsInRole("HR") || User.IsInRole("SuperAdmin");
 
-            //if (!isHRorAdmin && id != currentEmployeeId)
-            //{
-            //    return Forbid();
-            //}
+            if (!isHRorAdmin && id != currentEmployeeId)
+            {
+                return Forbid();
+            }
 
             var employee = await _context.Employees
                 .Include(e => e.Department)
@@ -57,7 +63,7 @@ namespace HRMS.Application.Controllers
         }
 
         // GET: Employee/Create
-       // [Authorize(Roles = "HR")]
+        [Authorize(Roles = "HR")]
         public IActionResult Create()
         {
             ViewBag.Departments = _context.Departments.ToList();
@@ -67,7 +73,7 @@ namespace HRMS.Application.Controllers
         // POST: Employee/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-      //  [Authorize(Roles = "HR")]
+        [Authorize(Roles = "HR")]
         public async Task<IActionResult> Create(Employee employee)
         {
             if (ModelState.IsValid)
@@ -82,7 +88,7 @@ namespace HRMS.Application.Controllers
         }
 
         // GET: Employee/Edit/5
-      //  [Authorize(Roles = "HR")]
+        [Authorize(Roles = "HR")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -102,7 +108,7 @@ namespace HRMS.Application.Controllers
         // POST: Employee/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-       // [Authorize(Roles = "HR")]
+        [Authorize(Roles = "HR")]
         public async Task<IActionResult> Edit(int id, Employee employee)
         {
             if (id != employee.Id)
@@ -114,7 +120,20 @@ namespace HRMS.Application.Controllers
             {
                 try
                 {
-                    _context.Update(employee);
+                    var existingEmployee = await _context.Employees.FindAsync(id);
+                    if (existingEmployee == null)
+                    {
+                        return NotFound();
+                    }
+                    // Update allowed properties only
+                    existingEmployee.EmployeeId = employee.EmployeeId ?? existingEmployee.EmployeeId;
+                    existingEmployee.FirstName = employee.FirstName;
+                    existingEmployee.LastName = employee.LastName;
+                    existingEmployee.Email = employee.Email;
+                    existingEmployee.Phone = employee.Phone;
+                    existingEmployee.JoinDate = employee.JoinDate;
+                    existingEmployee.DepartmentId = employee.DepartmentId;
+
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)

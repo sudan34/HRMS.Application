@@ -125,7 +125,8 @@ namespace HRMS.Application.Controllers
                 {
                     UserName = model.Email,
                     Email = model.Email,
-                    Employee = employee
+                    Employee = employee,
+                    CustomRoleType = model.Role.ToString() ?? "Employee"
                 };
 
                 var result = await _userManager.CreateAsync(user, model.Password);

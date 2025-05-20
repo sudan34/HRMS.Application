@@ -14,7 +14,7 @@ namespace HRMS.Application.Models
         public string Phone { get; set; } = string.Empty;
         public DateTime JoinDate { get; set; } = DateTime.Now;
         public int DepartmentId { get; set; } = 1;
-        public Department Department { get; set; }
+        public Department? Department { get; set; }
         public ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
         public bool IsActive { get; set; } = true;
     }

@@ -11,6 +11,6 @@ namespace HRMS.Application.Models
         public Employee Employee { get; set; }
 
         // Add any additional properties here
-        public string CustomRoleType { get; set; }
+        public string? CustomRoleType { get; set; }
     }
 }
