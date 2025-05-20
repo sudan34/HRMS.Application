@@ -1,6 +1,7 @@
 ﻿using HRMS.Application.Data;
 using HRMS.Application.Models;
 using HRMS.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -123,5 +124,48 @@ namespace HRMS.Application.Controllers
 
             return View(employee);
         }
+
+        [Authorize(Roles = "Employee")]
+        public async Task<IActionResult> MyAttendance(DateTime? fromDate, DateTime? toDate)
+        {
+            var employeeId = int.Parse(User.FindFirst("EmployeeId").Value);
+
+            var defaultFromDate = fromDate ?? DateTime.Today.AddDays(-7);
+            var defaultToDate = toDate ?? DateTime.Today;
+
+            var attendances = await _context.Attendances
+                .Include(a => a.Employee)
+                .Where(a => a.EmployeeId == employeeId &&
+                           a.CheckIn >= defaultFromDate &&
+                           a.CheckIn <= defaultToDate)
+                .OrderByDescending(a => a.CheckIn)
+                .ToListAsync();
+
+            ViewBag.FromDate = defaultFromDate;
+            ViewBag.ToDate = defaultToDate;
+
+            return View(attendances);
+        }
+
+        [Authorize(Roles = "HR")]
+        [HttpPost]
+        public async Task<IActionResult> UpdateAttendance(int id, DateTime checkIn, DateTime? checkOut, AttendanceStatus status)
+        {
+            var attendance = await _context.Attendances.FindAsync(id);
+            if (attendance == null)
+            {
+                return NotFound();
+            }
+
+            attendance.CheckIn = checkIn;
+            attendance.CheckOut = checkOut;
+            attendance.Status = status;
+
+            _context.Update(attendance);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Index));
+        }
+
     }
 }
