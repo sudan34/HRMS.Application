@@ -36,13 +36,13 @@ namespace HRMS.Application.Controllers
             }
 
             // Employees can only view their own details unless they're HR/SuperAdmin
-            var currentEmployeeId = int.Parse(User.FindFirst("EmployeeId").Value);
+           // var currentEmployeeId = int.Parse(User.FindFirst("EmployeeId").Value);
             var isHRorAdmin = User.IsInRole("HR") || User.IsInRole("SuperAdmin");
 
-            if (!isHRorAdmin && id != currentEmployeeId)
-            {
-                return Forbid();
-            }
+            //if (!isHRorAdmin && id != currentEmployeeId)
+            //{
+            //    return Forbid();
+            //}
 
             var employee = await _context.Employees
                 .Include(e => e.Department)

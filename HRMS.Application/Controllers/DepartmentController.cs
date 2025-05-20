@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HRMS.Application.Controllers
 {
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Roles = "SuperAdmin")]
     public class DepartmentController : Controller
     {
         private readonly ApplicationDbContext _context;
