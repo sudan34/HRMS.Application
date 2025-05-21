@@ -1,0 +1,37 @@
+﻿@model HRMS.Application.ViewModel.ManageRolesViewModel
+
+@{
+    ViewData["Title"] = "Manage Roles";
+}
+
+<h2>Manage Roles for @Model.UserName</h2>
+<p><strong>Employee:</strong> @Model.EmployeeName</p>
+
+<form asp-action="ManageRoles" method="post">
+    <input type="hidden" asp-for="UserId" />
+
+    <table class="table table-bordered table-hover">
+        <thead class="thead-light">
+            <tr>
+                <th>Role Name</th>
+                <th>Assigned</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < Model.Roles.Count; i++)
+            {
+                <tr>
+                    <td>@Model.Roles[i].RoleName</td>
+                    <td>
+                        <input type="checkbox" asp-for="Roles[@i].IsSelected" class="form-check-input" />
+                        <input type="hidden" asp-for="Roles[@i].RoleId" />
+                        <input type="hidden" asp-for="Roles[@i].RoleName" />
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button type="submit" class="btn btn-success">Update Roles</button>
+    <a asp-action="Index" class="btn btn-secondary">Back</a>
+</form>

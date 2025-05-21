@@ -42,7 +42,8 @@
                 <div class="dropdown-menu">
                     <a class="dropdown-item" asp-controller="UserManagement" asp-action="Index">User Management</a>
                     <a class="dropdown-item" asp-controller="Department" asp-action="Index">Departments</a>
-                    <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Register">Register New User</a>
+                    <a class="dropdown-item" asp-controller="Account" asp-action="Register">Register New User</a>
+                    @* <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Register">Register New User</a> *@
                 </div>
             </li>
         }

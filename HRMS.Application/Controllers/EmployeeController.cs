@@ -1,6 +1,7 @@
 ﻿using HRMS.Application.Data;
 using HRMS.Application.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,14 +11,16 @@ namespace HRMS.Application.Controllers
     public class EmployeeController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public EmployeeController(ApplicationDbContext context)
+        public EmployeeController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         // GET: Employee
-        [Authorize(Roles = "HR")]
+        [Authorize(Roles = "HR,SuperAdmin")]
         public async Task<IActionResult> Index()
         {
             var employees = await _context.Employees
@@ -180,8 +183,31 @@ namespace HRMS.Application.Controllers
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var employee = await _context.Employees.FindAsync(id);
-            _context.Employees.Remove(employee);
-            await _context.SaveChangesAsync();
+
+            if (employee != null)
+            {
+                employee.IsActive = false; // Soft delete
+                _context.Update(employee);
+
+                // Optional: Deactivate login if Identity is connected
+                ApplicationUser user = null;
+
+                if (int.TryParse(employee.EmployeeId, out int empIdInt))
+                {
+                    user = await _userManager.Users
+                        .FirstOrDefaultAsync(u => u.EmployeeId == empIdInt);
+                }
+
+                if (user != null)
+                {
+                    user.LockoutEnabled = true;
+                    user.LockoutEnd = DateTimeOffset.MaxValue; // Effectively disables login
+                    await _userManager.UpdateAsync(user);
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            
             return RedirectToAction(nameof(Index));
         }
 

@@ -60,14 +60,27 @@ namespace HRMS.Application.Controllers
                 UserId = user.Id,
                 UserName = user.UserName,
                 EmployeeName = user.Employee?.FullName,
-                Roles = _roleManager.Roles.Select(r => new RoleViewModel
-                {
-                    RoleId = r.Id,
-                    RoleName = r.Name,
-                    IsSelected = _userManager.IsInRoleAsync(user, r.Name).Result
-                }).ToList()
+                Roles = new List<RoleViewModel>()
+                //Roles = _roleManager.Roles.Select(r => new RoleViewModel
+                //{
+                //    RoleId = r.Id,
+                //    RoleName = r.Name,
+                //    IsSelected = _userManager.IsInRoleAsync(user, r.Name).Result
+                //}).ToList()
             };
+            var roles = _roleManager.Roles.ToList();
 
+            foreach (var role in roles)
+            {
+                var isInRole = await _userManager.IsInRoleAsync(user, role.Name);
+
+                model.Roles.Add(new RoleViewModel
+                {
+                    RoleId = role.Id,
+                    RoleName = role.Name,
+                    IsSelected = isInRole
+                });
+            }
             return View(model);
         }
 
