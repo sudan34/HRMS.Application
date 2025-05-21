@@ -1,0 +1,156 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - HRMS Portal</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <!-- Custom Login/Register Styles -->
+    <style>
+        :root {
+            --primary-color: #4e73df;
+            --primary-hover: #2e59d9;
+            --success-color: #1cc88a;
+            --success-hover: #17a673;
+            --secondary-color: #858796;
+            --light-color: #f8f9fc;
+            --danger-color: #e74a3b;
+        }
+
+        body {
+            background-color: #f8f9fc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+
+        .auth-container {
+            max-width: @(ViewContext.RouteData.Values["action"].ToString() == "Register" ? "950px" : "500px");
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem;
+            transition: max-width 0.3s ease;
+        }
+
+        .auth-card {
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .auth-icon {
+            font-size: 2.5rem;
+        }
+
+        .login-icon {
+            color: var(--primary-color);
+        }
+
+        .register-icon {
+            color: var(--success-color);
+        }
+
+        .card-footer {
+            background-color: var(--light-color);
+            border-top: 1px solid #e3e6f0;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            padding: 0.75rem 1.5rem;
+        }
+
+            .btn-primary:hover {
+                background-color: var(--primary-hover);
+                border-color: var(--primary-hover);
+            }
+
+        .btn-success {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+            padding: 0.75rem 1.5rem;
+        }
+
+            .btn-success:hover {
+                background-color: var(--success-hover);
+                border-color: var(--success-hover);
+            }
+
+        .flip-link {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+            .flip-link:hover {
+                color: var(--primary-hover) !important;
+                text-decoration: underline;
+            }
+
+        .input-group-text {
+            background-color: var(--light-color);
+        }
+
+      /*   .copyright {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+        } */
+
+        /* Form specific styles */
+        .form-control, .form-select {
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+        }
+
+        .form-label {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .validation-summary-errors ul {
+            list-style: none;
+            padding-left: 0;
+            margin-bottom: 0;
+        }
+    </style>
+
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body class="d-flex align-items-center py-4 bg-body-tertiary">
+    <main class="auth-container">
+        @RenderBody()
+    </main>
+
+    @* <!-- Copyright Notice -->
+    <div class="copyright">
+        &copy; @DateTime.Now.Year HRMS Portal. All rights reserved.
+    </div> *@
+
+    <!-- Scripts -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Validation Scripts -->
+    <partial name="_ValidationScriptsPartial" />
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

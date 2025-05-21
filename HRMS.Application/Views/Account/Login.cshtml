@@ -1,56 +1,69 @@
 ﻿@using HRMS.Application.ViewModel
 @model LoginViewModel
 @{
+    Layout = "_LoginLayout";
     ViewData["Title"] = "Login";
 }
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="card shadow-lg rounded-4 border-0">
-                <div class="card-body p-4">
-                    <div class="text-center mb-4">
-                        <i class="bi bi-person-badge text-primary" style="font-size: 2.5rem;"></i>
-                        <h2 class="h4 mb-1 fw-bold mt-2">HRMS Portal</h2>
-                        <p class="text-muted small">User Login</p>
-                    </div>
+<div class="card shadow-lg rounded-4 border-0 auth-card">
+    <div class="card-body p-4 p-md-5">
+        <!-- Centered Header -->
+        <div class="text-center mb-4 auth-header">
+            <i class="bi bi-person-badge login-icon auth-icon"></i>
+            <h2 class="h4 mb-1 fw-bold mt-2">HRMS Portal</h2>
+            <p class="text-muted small">User Login</p>
+        </div>
 
-                    <form asp-action="Login" method="post" novalidate>
-                        <div class="mb-3">
-                            <label asp-for="Email" class="form-label">Email address</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
-                                <input asp-for="Email" class="form-control" placeholder="Enter your email" />
-                            </div>
-                            <span asp-validation-for="Email" class="text-danger small"></span>
-                        </div>
+        <form asp-action="Login" method="post" novalidate>
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger text-center mb-4">
+                    @Html.ValidationSummary()
+                </div>
+            }
 
-                        <div class="mb-3">
-                            <label asp-for="Password" class="form-label">Password</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light"><i class="bi bi-lock"></i></span>
-                                <input asp-for="Password" class="form-control" type="password" placeholder="Enter your password" />
-                            </div>
-                            <span asp-validation-for="Password" class="text-danger small"></span>
-                        </div>
+            <div class="mb-4">
+                <label asp-for="Email" class="form-label">Email address</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
+                    <input asp-for="Email" class="form-control" placeholder="Enter your email" />
+                </div>
+                <span asp-validation-for="Email" class="text-danger small"></span>
+            </div>
 
-                        <div class="d-grid mb-3">
-                            <button type="submit" class="btn btn-primary btn-lg rounded-3">Login</button>
-                        </div>
+            <div class="mb-4">
+                <label asp-for="Password" class="form-label">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light"><i class="bi bi-lock"></i></span>
+                    <input asp-for="Password" class="form-control" type="password" placeholder="Enter your password" />
+                </div>
+                <span asp-validation-for="Password" class="text-danger small"></span>
+            </div>
 
-                        @if (!ViewData.ModelState.IsValid)
-                        {
-                            <div class="alert alert-danger text-center">
-                                @Html.ValidationSummary()
-                            </div>
-                        }
-
-                        <div class="text-center mt-3">
-                            <small class="text-muted">Forgot your password? <a href="#">Click here</a></small>
-                        </div>
-                    </form>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="rememberMe">
+                    <label class="form-check-label small" for="rememberMe">
+                        Remember me
+                    </label>
+                </div>
+                <div>
+                    <a href="#" class="small text-primary">Forgot Password?</a>
                 </div>
             </div>
+
+            <div class="d-grid mt-3">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                </button>
+            </div>
+        </form>
+
+        <div class="card-footer text-center py-3 bg-light mt-4">
+            <p class="text-muted small mb-0">
+                Don't have an account?
+                <a asp-action="Register" asp-controller="Account" class="flip-link text-primary fw-bold">Register here</a>
+            </p>
         </div>
     </div>
 </div>
@@ -60,4 +73,3 @@
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
 }
-
