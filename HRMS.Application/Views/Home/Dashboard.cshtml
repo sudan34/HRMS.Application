@@ -2,16 +2,43 @@
 
 @{
     ViewBag.Title = "Dashboard";
+    var currentDate = DateTime.Now.ToString("dddd, MMMM dd, yyyy");
 }
 
 <style>
+    .avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;  /* Increased from default */
+        height: 48px; /* Increased from default */
+    }
+    
+    .avatar-initial {
+        font-size: 1.25rem; /* Larger text */
+        font-weight: 600;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
     .card-custom {
         border-radius: 1rem;
         padding: 1.5rem;
         position: relative;
         color: #fff;
         overflow: hidden;
+        transition: transform 0.3s ease;
+        height: 100%;
     }
+
+        .card-custom:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
 
         .card-custom .icon {
             position: absolute;
@@ -19,11 +46,17 @@
             right: 1rem;
             font-size: 2.5rem;
             opacity: 0.2;
+            transition: opacity 0.3s ease;
+        }
+
+        .card-custom:hover .icon {
+            opacity: 0.4;
         }
 
         .card-custom h6 {
             font-weight: 600;
             font-size: 1rem;
+            margin-bottom: 0.5rem;
         }
 
         .card-custom h3 {
@@ -31,6 +64,47 @@
             font-size: 2rem;
             margin: 0.5rem 0 0;
         }
+
+        .card-custom .card-footer {
+            background: rgba(255,255,255,0.1);
+            border-top: none;
+            font-size: 0.8rem;
+            padding: 0.5rem 1rem;
+            margin: 1rem -1.5rem -1.5rem;
+        }
+
+    .card {
+        border-radius: 12px !important; /* More rounded corners */
+    }
+
+    .chart-container {
+        height: 300px;
+    }
+
+    /* Custom Color Palette */
+    .bg-custom-primary {
+        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+    }
+
+    .bg-custom-success {
+        background: linear-gradient(135deg, #4cc9f0 0%, #4895ef 100%);
+    }
+
+    .bg-custom-info {
+        background: linear-gradient(135deg, #f72585 0%, #b5179e 100%);
+    }
+
+    .bg-custom-warning {
+        background: linear-gradient(135deg, #f8961e 0%, #f3722c 100%);
+    }
+
+    .bg-custom-danger {
+        background: linear-gradient(135deg, #ef233c 0%, #d90429 100%);
+    }
+
+    .bg-custom-secondary {
+        background: linear-gradient(135deg, #8d99ae 0%, #2b2d42 100%);
+    }
 
     .bg-gradient-primary {
         background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
@@ -47,84 +121,395 @@
     .bg-gradient-warning {
         background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%);
     }
+
+    .bg-gradient-info {
+        background: linear-gradient(135deg, #36b9cc 0%, #258391 100%);
+    }
+
+    .bg-gradient-secondary {
+        background: linear-gradient(135deg, #858796 0%, #60616f 100%);
+    }
+
+    .attendance-chart-container {
+        height: 300px;
+    }
+
+    .recent-activities {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .activity-item {
+        padding: 0.75rem 1rem;
+        border-left: 3px solid #4e73df;
+        margin-bottom: 0.5rem;
+        background: #f8f9fa;
+    }
+
+        .activity-item:last-child {
+            margin-bottom: 0;
+        }
+
+    .department-distribution {
+        height: 250px;
+    }
+
+    .upcoming-leaves {
+        max-height: 300px;
+        overflow-y: auto;
+    }
 </style>
 
-<div class="container mt-4">
-    <h2 class="mb-4 fw-bold text-primary">HRMS Dashboard</h2>
+<div class="container-fluid mt-4">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h2 class="mb-0 fw-bold text-primary">HRMS Dashboard</h2>
+        <div class="text-muted">
+            <i class="bi bi-calendar3"></i> @currentDate
+        </div>
+    </div>
 
-    <div class="row g-4">
-        <div class="col-md-3">
+    <!-- Stats Cards Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
             <div class="card card-custom bg-gradient-primary shadow-sm">
-                <div class="icon"><i class="bi bi-person-fill"></i></div>
+                <div class="icon"><i class="bi bi-people-fill"></i></div>
                 <h6>Total Employees</h6>
                 <h3>@Model.TotalEmployees</h3>
+                <div class="card-footer">
+                    <i class="bi bi-arrow-up"></i> 5.2% from last month
+                </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-xl-3 col-md-6">
             <div class="card card-custom bg-gradient-success shadow-sm">
                 <div class="icon"><i class="bi bi-person-check-fill"></i></div>
                 <h6>Present Today</h6>
                 <h3>@Model.TotalPresent</h3>
+                <div class="card-footer">
+                    @if (Model.TotalEmployees > 0)
+                    {
+                        <span>@Math.Round((double)Model.TotalPresent / Model.TotalEmployees * 100, 1)% of staff</span>
+                    }
+                </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-xl-3 col-md-6">
             <div class="card card-custom bg-gradient-danger shadow-sm">
                 <div class="icon"><i class="bi bi-person-x-fill"></i></div>
                 <h6>Absent Today</h6>
                 <h3>@Model.TotalAbsent</h3>
+                <div class="card-footer">
+                    @if (Model.TotalOnLeave > 0)
+                    {
+                        <span>@Model.TotalOnLeave on leave</span>
+                    }
+                </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-xl-3 col-md-6">
             <div class="card card-custom bg-gradient-warning shadow-sm">
                 <div class="icon"><i class="bi bi-airplane-engines"></i></div>
                 <h6>On Leave</h6>
                 <h3>@Model.TotalOnLeave</h3>
+                <div class="card-footer">
+                    <i class="bi bi-calendar-week"></i> 3 upcoming this week
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="mt-5">
-        <h4 class="mb-3">Today's Attendance</h4>
-        <table class="table table-bordered table-hover">
-            <thead class="table-light">
-                <tr>
-                    <th>#</th>
-                    <th>Employee</th>
-                    <th>Check In</th>
-                    <th>Check Out</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.TodayAttendances.Any())
-                {
-                    int index = 1;
-                    foreach (var item in Model.TodayAttendances)
-                    {
-                        <tr>
-                            <td>@index</td>
-                            <td>@item.Employee.FullName</td>
-                            <td>@item.CheckIn.ToShortTimeString()</td>
-                            <td>@(item.CheckOut?.ToShortTimeString() ?? "-")</td>
-                            <td>
-                                <span class="badge bg-@GetStatusColor(item.Status)">
-                                    @item.Status.ToString()
-                                </span>
-                            </td>
-                        </tr>
-                        index++;
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="5" class="text-center">No attendance records found for today.</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    <!-- Charts and Tables Row -->
+    <div class="row g-4 mb-4">
+        <!-- Attendance Chart -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="m-0 font-weight-bold text-primary">Attendance Overview (Last 7 Days)</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="attendanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Department Distribution -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="m-0 font-weight-bold text-primary">Department Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <div class="department-distribution">
+                        <canvas id="departmentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Information Row -->
+    <div class="row g-4">
+        <!-- Today's Attendance Table -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Today's Attendance</h6>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Employee</th>
+                                    <th>Department</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Working Hours</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Model.TodayAttendances.Any())
+                                {
+                                    int index = 1;
+                                    foreach (var item in Model.TodayAttendances)
+                                    {
+                                        <tr>
+                                            <td>@index</td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar me-2">
+                                                        <span class="avatar-initial rounded-circle bg-primary text-white">
+                                                            @item.Employee.FullName.Split(' ').Select(x => x[0]).FirstOrDefault()
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <div class="fw-bold">@item.Employee.FullName</div>
+                                                        <div class="text-muted small">@item.Employee.Department</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>@item.Employee.Department?.Name</td>
+                                            <td>@item.CheckIn.ToShortTimeString()</td>
+                                            <td>@(item.CheckOut?.ToShortTimeString() ?? "-")</td>
+                                            <td>
+                                                @if (item.CheckOut.HasValue)
+                                                {
+                                                    var hours = (item.CheckOut.Value - item.CheckIn).TotalHours;
+                                                    <span>@Math.Round(hours, 1) hrs</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>-</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-@GetStatusColor(item.Status)">
+                                                    @item.Status.ToString()
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        index++;
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="7" class="text-center">No attendance records found for today.</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activities and Upcoming Leaves -->
+        <div class="col-lg-4">
+            <!-- Recent Activities -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Activities</h6>
+                </div>
+                <div class="card-body">
+                    <div class="recent-activities">
+                        <div class="activity-item">
+                            <div class="d-flex justify-content-between">
+                                <strong>New employee onboarded</strong>
+                                <small class="text-muted">2 hours ago</small>
+                            </div>
+                            <div>John Doe joined as Software Developer</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="d-flex justify-content-between">
+                                <strong>Leave approved</strong>
+                                <small class="text-muted">5 hours ago</small>
+                            </div>
+                            <div>Jane Smith's leave request for 3 days</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="d-flex justify-content-between">
+                                <strong>Attendance marked</strong>
+                                <small class="text-muted">Yesterday</small>
+                            </div>
+                            <div>5 late arrivals recorded</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="d-flex justify-content-between">
+                                <strong>Department updated</strong>
+                                <small class="text-muted">Yesterday</small>
+                            </div>
+                            <div>IT department renamed to Technology</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upcoming Leaves -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="m-0 font-weight-bold text-primary">Upcoming Leaves</h6>
+                </div>
+                <div class="card-body">
+                    <div class="upcoming-leaves">
+                        <div class="d-flex mb-3">
+                            <div class="avatar me-3">
+                                <span class="avatar-initial rounded-circle bg-success text-white">JD</span>
+                            </div>
+                            <div>
+                                <div class="fw-bold">John Doe</div>
+                                <div class="text-muted small">Jun 15 - Jun 18 (3 days)</div>
+                                <div class="badge bg-info text-dark">Vacation</div>
+                            </div>
+                        </div>
+                        <div class="d-flex mb-3">
+                            <div class="avatar me-3">
+                                <span class="avatar-initial rounded-circle bg-warning text-white">AS</span>
+                            </div>
+                            <div>
+                                <div class="fw-bold">Alice Smith</div>
+                                <div class="text-muted small">Jun 20 - Jun 21 (2 days)</div>
+                                <div class="badge bg-danger text-white">Sick Leave</div>
+                            </div>
+                        </div>
+                        <div class="d-flex">
+                            <div class="avatar me-3">
+                                <span class="avatar-initial rounded-circle bg-primary text-white">RJ</span>
+                            </div>
+                            <div>
+                                <div class="fw-bold">Robert Johnson</div>
+                                <div class="text-muted small">Jun 25 - Jun 30 (5 days)</div>
+                                <div class="badge bg-success text-white">Maternity</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Attendance Chart
+        const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
+        const attendanceChart = new Chart(attendanceCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [
+                    {
+                        label: 'Present',
+                        data: [65, 59, 80, 81, 56, 55, 40],
+                        backgroundColor: 'rgba(67, 97, 238, 0.8)',
+                        borderColor: 'rgba(67, 97, 238, 1)',
+                        borderWidth: 0,
+                        borderRadius: 8, // Rounded bar corners
+                        borderSkipped: false,
+                    },
+                    {
+                        label: 'Absent',
+                        data: [5, 10, 3, 2, 7, 2, 1],
+                        backgroundColor: 'rgba(239, 35, 60, 0.8)',
+                        borderColor: 'rgba(239, 35, 60, 1)',
+                        borderWidth: 0,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    },
+                    {
+                        label: 'Late',
+                        data: [12, 8, 5, 9, 4, 1, 0],
+                        backgroundColor: 'rgba(248, 150, 30, 0.8)',
+                        borderColor: 'rgba(248, 150, 30, 1)',
+                        borderWidth: 0,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Department Distribution Chart
+        const departmentCtx = document.getElementById('departmentChart').getContext('2d');
+        const departmentChart = new Chart(departmentCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['IT', 'HR', 'Finance', 'Marketing', 'Operations'],
+                datasets: [{
+                    data: [25, 15, 20, 15, 25],
+                    backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'],
+                    hoverBackgroundColor: ['#2e59d9', '#17a673', '#2c9faf', '#dda20a', '#be2617'],
+                    hoverBorderColor: "rgba(234, 236, 244, 1)",
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                },
+                cutout: '70%',
+            },
+        });
+    </script>
+}
 
 @functions {
     string GetStatusColor(AttendanceStatus status)
