@@ -174,7 +174,7 @@ namespace HRMS.Application.Controllers
         {
             if (userId == null || code == null)
             {
-                return RedirectToAction(nameof(HomeController.Index), "Home");
+                return RedirectToAction(nameof(HomeController.Dashboard), "Home");
             }
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
@@ -299,7 +299,7 @@ namespace HRMS.Application.Controllers
             }
             else
             {
-                return RedirectToAction(nameof(HomeController.Index), "Home");
+                return RedirectToAction(nameof(HomeController.Dashboard), "Home");
             }
         }
 

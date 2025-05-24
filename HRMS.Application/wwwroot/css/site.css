@@ -161,127 +161,18 @@ body {
 }
 
 
-/*#sidebar,
-#content {
-    transition: all 0.3s ease;
+.border-left-primary {
+    border-left: 5px solid #007bff;
 }
 
-@media (max-width: 768px) {
-    #sidebar {
-        margin-left: -250px;
-    }
-
-        #sidebar.active {
-            margin-left: 0;
-        }
-
-    #content {
-        margin-left: 0;
-        width: 100%;
-    }
-
-        #content.active {
-            margin-left: 250px;
-            width: calc(100% - 250px);
-        }
-}
-*/
-
-
-/* Sidebar styles */
-/*.wrapper {
-    display: flex;
-    width: 100%;
-    align-items: stretch;
+.border-left-success {
+    border-left: 5px solid #28a745;
 }
 
-#sidebar {
-    min-width: 250px;
-    max-width: 250px;
-    background: #343a40;
-    color: #fff;
-    transition: all 0.3s;
-    min-height: 100vh;
+.border-left-danger {
+    border-left: 5px solid #dc3545;
 }
 
-    #sidebar.active {
-        margin-left: -250px;
-    }
-
-    #sidebar .sidebar-header {
-        padding: 20px;
-        background: #212529;
-    }
-
-    #sidebar ul.components {
-        padding: 20px 0;
-    }
-
-    #sidebar ul p {
-        color: #fff;
-        padding: 10px;
-    }
-
-    #sidebar ul li a {
-        padding: 10px 15px;
-        font-size: 1.1em;
-        display: block;
-        color: #adb5bd;
-        text-decoration: none;
-    }
-
-        #sidebar ul li a:hover {
-            color: #fff;
-            background: #495057;
-        }
-
-    #sidebar ul li.active > a,
-    a[aria-expanded="true"] {
-        color: #fff;
-        background: #212529;
-    }
-
-a[data-bs-toggle="collapse"] {
-    position: relative;
+.border-left-warning {
+    border-left: 5px solid #ffc107;
 }
-
-.dropdown-toggle::after {
-    display: block;
-    position: absolute;
-    top: 50%;
-    right: 20px;
-    transform: translateY(-50%);
-}
-
-#sidebar ul ul a {
-    font-size: 0.9em !important;
-    padding-left: 30px !important;
-    background: #212529;
-}
-
-#sidebar i {
-    margin-right: 10px;
-}*/
-
-/* Content styles */
-/*#content {
-    width: 100%;
-    padding: 20px;
-    min-height: 100vh;
-    transition: all 0.3s;
-}*/
-
-/* Responsive */
-/*@media (max-width: 768px) {
-    #sidebar {
-        margin-left: -250px;
-    }
-
-        #sidebar.active {
-            margin-left: 0;
-        }
-
-    #sidebarCollapse span {
-        display: none;
-    }
-}*/

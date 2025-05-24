@@ -1,0 +1,141 @@
+﻿@model HRMS.Application.ViewModel.DashboardViewModel
+
+@{
+    ViewBag.Title = "Dashboard";
+}
+
+<style>
+    .card-custom {
+        border-radius: 1rem;
+        padding: 1.5rem;
+        position: relative;
+        color: #fff;
+        overflow: hidden;
+    }
+
+        .card-custom .icon {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 2.5rem;
+            opacity: 0.2;
+        }
+
+        .card-custom h6 {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .card-custom h3 {
+            font-weight: 700;
+            font-size: 2rem;
+            margin: 0.5rem 0 0;
+        }
+
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    }
+
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #1cc88a 0%, #159b6b 100%);
+    }
+
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, #e74a3b 0%, #c0392b 100%);
+    }
+
+    .bg-gradient-warning {
+        background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%);
+    }
+</style>
+
+<div class="container mt-4">
+    <h2 class="mb-4 fw-bold text-primary">HRMS Dashboard</h2>
+
+    <div class="row g-4">
+        <div class="col-md-3">
+            <div class="card card-custom bg-gradient-primary shadow-sm">
+                <div class="icon"><i class="bi bi-person-fill"></i></div>
+                <h6>Total Employees</h6>
+                <h3>@Model.TotalEmployees</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-custom bg-gradient-success shadow-sm">
+                <div class="icon"><i class="bi bi-person-check-fill"></i></div>
+                <h6>Present Today</h6>
+                <h3>@Model.TotalPresent</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-custom bg-gradient-danger shadow-sm">
+                <div class="icon"><i class="bi bi-person-x-fill"></i></div>
+                <h6>Absent Today</h6>
+                <h3>@Model.TotalAbsent</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-custom bg-gradient-warning shadow-sm">
+                <div class="icon"><i class="bi bi-airplane-engines"></i></div>
+                <h6>On Leave</h6>
+                <h3>@Model.TotalOnLeave</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-5">
+        <h4 class="mb-3">Today's Attendance</h4>
+        <table class="table table-bordered table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Employee</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.TodayAttendances.Any())
+                {
+                    int index = 1;
+                    foreach (var item in Model.TodayAttendances)
+                    {
+                        <tr>
+                            <td>@index</td>
+                            <td>@item.Employee.FullName</td>
+                            <td>@item.CheckIn.ToShortTimeString()</td>
+                            <td>@(item.CheckOut?.ToShortTimeString() ?? "-")</td>
+                            <td>
+                                <span class="badge bg-@GetStatusColor(item.Status)">
+                                    @item.Status.ToString()
+                                </span>
+                            </td>
+                        </tr>
+                        index++;
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="5" class="text-center">No attendance records found for today.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@functions {
+    string GetStatusColor(AttendanceStatus status)
+    {
+        return status switch
+        {
+            AttendanceStatus.Present => "success",
+            AttendanceStatus.Late => "warning",
+            AttendanceStatus.Absent => "danger",
+            AttendanceStatus.OnLeave => "primary",
+            _ => "secondary"
+        };
+    }
+}
