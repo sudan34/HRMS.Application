@@ -128,8 +128,11 @@ namespace HRMS.Application.Controllers
         [Authorize(Roles = "Employee")]
         public async Task<IActionResult> MyAttendance(DateTime? fromDate, DateTime? toDate)
         {
-            var employeeId = int.Parse(User.FindFirst("EmployeeId").Value);
-
+            var employeeId = User.FindFirst("EmployeeId")?.Value;
+            if (string.IsNullOrEmpty(employeeId))
+            {
+                return Unauthorized();
+            }
             var defaultFromDate = fromDate ?? DateTime.Today.AddDays(-7);
             var defaultToDate = toDate ?? DateTime.Today;
 

@@ -127,12 +127,11 @@ namespace HRMS.Application.Services
 
         private async Task ProcessAttendanceRecords(List<(string enrollNumber, DateTime recordTime, int inOutMode)> records)
         {
-            // Get all employee IDs at once
             var enrollNumbers = records.Select(r => r.enrollNumber).Distinct().ToList();
             var employees = await _context.Employees
                 .Include(e => e.Department)
                 .Where(e => enrollNumbers.Contains(e.EmployeeId))
-                .ToDictionaryAsync(e => e.EmployeeId);
+                .ToDictionaryAsync(e => e.EmployeeId);  // Key by EmployeeId now
 
             var attendancesToAdd = new List<Attendance>();
             var attendancesToUpdate = new List<Attendance>();
@@ -140,19 +139,23 @@ namespace HRMS.Application.Services
             foreach (var record in records)
             {
                 if (!employees.TryGetValue(record.enrollNumber, out var employee))
+                {
+                    _logger.LogWarning($"Employee not found with Enrollment ID: {record.enrollNumber}");
                     continue;
+                }
 
                 if (record.inOutMode == 0) // Check-in
                 {
                     var existing = await _context.Attendances
-                        .FirstOrDefaultAsync(a => a.EmployeeId == employee.Id &&
-                                                a.CheckIn.Date == record.recordTime.Date);
+                        .FirstOrDefaultAsync(a =>
+                            a.EmployeeId == employee.EmployeeId &&  // Use EmployeeId here
+                            a.CheckIn.Date == record.recordTime.Date);
 
                     if (existing == null)
                     {
                         attendancesToAdd.Add(new Attendance
                         {
-                            EmployeeId = employee.Id,
+                            EmployeeId = employee.EmployeeId,  // Use EmployeeId here
                             CheckIn = record.recordTime,
                             Status = DetermineAttendanceStatus(employee.DepartmentId, record.recordTime)
                         });
@@ -161,8 +164,9 @@ namespace HRMS.Application.Services
                 else // Check-out
                 {
                     var attendance = await _context.Attendances
-                        .Where(a => a.EmployeeId == employee.Id &&
-                                   a.CheckIn.Date == record.recordTime.Date)
+                        .Where(a =>
+                            a.EmployeeId == employee.EmployeeId &&  // Use EmployeeId here
+                            a.CheckIn.Date == record.recordTime.Date)
                         .OrderByDescending(a => a.CheckIn)
                         .FirstOrDefaultAsync();
 
@@ -185,7 +189,6 @@ namespace HRMS.Application.Services
                 _context.Attendances.UpdateRange(attendancesToUpdate);
                 await _context.SaveChangesAsync();
             }
-
         }
         private AttendanceStatus DetermineAttendanceStatus(int departmentId, DateTime checkInTime)
         {

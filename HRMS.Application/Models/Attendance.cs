@@ -1,9 +1,18 @@
-﻿namespace HRMS.Application.Models
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace HRMS.Application.Models
 {
     public class Attendance
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
-        public int EmployeeId { get; set; }
+
+        [Required]
+        [MaxLength(50)]
+        public string EmployeeId { get; set; }
+        [ForeignKey("EmployeeId")]
         public Employee Employee { get; set; }
         public DateTime CheckIn { get; set; }
         public DateTime? CheckOut { get; set; }

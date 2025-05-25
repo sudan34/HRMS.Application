@@ -22,7 +22,9 @@ namespace HRMS.Application.Data
             modelBuilder.Entity<Attendance>()
                 .HasOne(a => a.Employee)
                 .WithMany(e => e.Attendances)
-                .HasForeignKey(a => a.EmployeeId);
+                .HasForeignKey(a => a.EmployeeId)
+                .HasPrincipalKey(e => e.EmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             //modelBuilder.Entity<User>()
             //.HasOne(u => u.Employee)
