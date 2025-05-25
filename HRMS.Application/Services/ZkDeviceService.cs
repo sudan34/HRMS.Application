@@ -13,7 +13,7 @@ namespace HRMS.Application.Services
         private readonly IConfiguration _config;
         private CZKEMClass _zkDevice;
         private bool _isConnected = false;
-
+        private readonly Dictionary<int, TimeSpan> _departmentLateTimes;
         public ZkDeviceService(ApplicationDbContext context,
                              ILogger<ZkDeviceService> logger,
                              IConfiguration config)
@@ -22,8 +22,35 @@ namespace HRMS.Application.Services
             _logger = logger;
             _config = config;
             _zkDevice = new CZKEMClass();
+            _departmentLateTimes = LoadDepartmentLateTimes();
         }
 
+        private Dictionary<int, TimeSpan> LoadDepartmentLateTimes()
+        {
+            var lateTimes = new Dictionary<int, TimeSpan>();
+            var defaultTime = TimeSpan.Parse(_config["DepartmentSettings:LateTimes:Default"]);
+
+            // Load all configured department late times
+            var section = _config.GetSection("DepartmentSettings:LateTimes");
+            foreach (var dept in section.GetChildren())
+            {
+                if (dept.Key != "Default" &&
+                    int.TryParse(dept.Key, out int deptId) &&
+                    TimeSpan.TryParse(dept.Value, out TimeSpan time))
+                {
+                    if (!lateTimes.ContainsKey(deptId))
+                    {
+                        lateTimes.Add(deptId, time);
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Duplicate department ID in config: {deptId}");
+                    }
+                }
+            }
+
+            return lateTimes;
+        }
         public async Task<bool> TestConnectionAsync()
         {
             try
@@ -43,8 +70,6 @@ namespace HRMS.Application.Services
 
         public async Task SyncAttendanceDataAsync()
         {
-            // var records = await GetAttendanceDataAsync(DateTime.Today.AddDays(-7), DateTime.Today);
-
             if (!await TestConnectionAsync())
                 throw new Exception("ZK Device connection failed");
 
@@ -55,6 +80,8 @@ namespace HRMS.Application.Services
 
                 if (_zkDevice.ReadGeneralLogData(machineNumber))
                 {
+                    var records = new List<(string, DateTime, int)>();
+
                     string sdwEnrollNumber = "";
                     int idwVerifyMode = 0;
                     int idwInOutMode = 0;
@@ -80,10 +107,16 @@ namespace HRMS.Application.Services
                         ref idwWorkcode))
                     {
                         var logTime = new DateTime(idwYear, idwMonth, idwDay, idwHour, idwMinute, idwSecond);
-
-                        await ProcessAttendanceRecord(sdwEnrollNumber, logTime, idwInOutMode);
+                        records.Add((sdwEnrollNumber, logTime, idwInOutMode));
                     }
+
+                    await ProcessAttendanceRecords(records);
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing attendance data");
+                throw;
             }
             finally
             {
@@ -92,6 +125,78 @@ namespace HRMS.Application.Services
             }
         }
 
+        private async Task ProcessAttendanceRecords(List<(string enrollNumber, DateTime recordTime, int inOutMode)> records)
+        {
+            // Get all employee IDs at once
+            var enrollNumbers = records.Select(r => r.enrollNumber).Distinct().ToList();
+            var employees = await _context.Employees
+                .Include(e => e.Department)
+                .Where(e => enrollNumbers.Contains(e.EmployeeId))
+                .ToDictionaryAsync(e => e.EmployeeId);
+
+            var attendancesToAdd = new List<Attendance>();
+            var attendancesToUpdate = new List<Attendance>();
+
+            foreach (var record in records)
+            {
+                if (!employees.TryGetValue(record.enrollNumber, out var employee))
+                    continue;
+
+                if (record.inOutMode == 0) // Check-in
+                {
+                    var existing = await _context.Attendances
+                        .FirstOrDefaultAsync(a => a.EmployeeId == employee.Id &&
+                                                a.CheckIn.Date == record.recordTime.Date);
+
+                    if (existing == null)
+                    {
+                        attendancesToAdd.Add(new Attendance
+                        {
+                            EmployeeId = employee.Id,
+                            CheckIn = record.recordTime,
+                            Status = DetermineAttendanceStatus(employee.DepartmentId, record.recordTime)
+                        });
+                    }
+                }
+                else // Check-out
+                {
+                    var attendance = await _context.Attendances
+                        .Where(a => a.EmployeeId == employee.Id &&
+                                   a.CheckIn.Date == record.recordTime.Date)
+                        .OrderByDescending(a => a.CheckIn)
+                        .FirstOrDefaultAsync();
+
+                    if (attendance != null && attendance.CheckOut == null)
+                    {
+                        attendance.CheckOut = record.recordTime;
+                        attendancesToUpdate.Add(attendance);
+                    }
+                }
+            }
+
+            if (attendancesToAdd.Any())
+            {
+                await _context.Attendances.AddRangeAsync(attendancesToAdd);
+                await _context.SaveChangesAsync();
+            }
+
+            if (attendancesToUpdate.Any())
+            {
+                _context.Attendances.UpdateRange(attendancesToUpdate);
+                await _context.SaveChangesAsync();
+            }
+
+        }
+        private AttendanceStatus DetermineAttendanceStatus(int departmentId, DateTime checkInTime)
+        {
+            var lateTime = _departmentLateTimes.TryGetValue(departmentId, out var deptTime)
+                 ? deptTime
+                 : TimeSpan.Parse(_config["DepartmentSettings:LateTimes:Default"] ?? "09:30:00");
+
+            return checkInTime.TimeOfDay > lateTime
+                ? AttendanceStatus.Late
+                : AttendanceStatus.Present;
+        }
         public async Task<List<AttendanceRecord>> GetAttendanceDataAsync(DateTime fromDate, DateTime toDate)
         {
             var records = new List<AttendanceRecord>();
@@ -153,66 +258,7 @@ namespace HRMS.Application.Services
                 Disconnect();
             }
         }
-        private async Task ProcessAttendanceRecord(string enrollNumber, DateTime recordTime, int inOutMode)
-        {
-            var employee = await _context.Employees
-                .FirstOrDefaultAsync(e => e.EmployeeId == enrollNumber);
 
-            if (employee == null && int.TryParse(enrollNumber, out int enrollId))
-            {
-                employee = await _context.Employees
-                    .FirstOrDefaultAsync(e => e.EmployeeId == enrollId.ToString());
-            }
-
-            if (employee == null)
-            {
-                _logger.LogWarning($"No employee found with Enrollment Number: {enrollNumber}");
-                return;
-            }
-
-            var attendanceDate = recordTime.Date;
-
-            // Check if this is a check-in or check-out
-            if (inOutMode == 0) // Check-in
-            {
-                var existing = await _context.Attendances
-                    .FirstOrDefaultAsync(a => a.EmployeeId == employee.Id &&
-                                            a.CheckIn.Date == recordTime.Date);
-
-                if (existing == null)
-                {
-                    _context.Attendances.Add(new Attendance
-                    {
-                        EmployeeId = employee.Id,
-                        CheckIn = recordTime,
-                        Status = DetermineAttendanceStatus(recordTime)
-                    });
-                    await _context.SaveChangesAsync();
-                }
-            }
-            else // Check-out
-            {
-                var attendance = await _context.Attendances
-                    .Where(a => a.EmployeeId == employee.Id &&
-                               a.CheckIn.Date == recordTime.Date)
-                    .OrderByDescending(a => a.CheckIn)
-                    .FirstOrDefaultAsync();
-
-                if (attendance != null && attendance.CheckOut == null)
-                {
-                    attendance.CheckOut = recordTime;
-                    await _context.SaveChangesAsync();
-                }
-            }
-        }
-
-        private AttendanceStatus DetermineAttendanceStatus(DateTime checkInTime)
-        {
-            var lateTime = new TimeSpan(9, 30, 0); // 9:30 AM
-            return checkInTime.TimeOfDay > lateTime ?
-                AttendanceStatus.Late :
-                AttendanceStatus.Present;
-        }
 
         public void Disconnect()
         {
