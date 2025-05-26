@@ -26,7 +26,9 @@ namespace HRMS.Application.Controllers
 
             var attendances = await _context.Attendances
                 .Include(a => a.Employee)
-                .Where(a => a.CheckIn >= defaultFromDate && a.CheckIn <= defaultToDate)
+                 .Where(a => a.CheckIn.Date >= defaultFromDate.Date &&
+                   a.CheckIn.Date <= defaultToDate.Date &&
+                   a.Employee.IsActive)
                 .OrderByDescending(a => a.CheckIn)
                 .ToListAsync();
 
@@ -106,6 +108,7 @@ namespace HRMS.Application.Controllers
 
             // Get employee with attendance records for the date range
             var employee = await _context.Employees
+                 .Where(e => e.IsActive)
                 .Include(e => e.Department)
                 .Include(e => e.Attendances
                     .Where(a => a.CheckIn.Date >= defaultFromDate.Date &&
@@ -139,8 +142,9 @@ namespace HRMS.Application.Controllers
             var attendances = await _context.Attendances
                 .Include(a => a.Employee)
                 .Where(a => a.EmployeeId == employeeId &&
-                           a.CheckIn >= defaultFromDate &&
-                           a.CheckIn <= defaultToDate)
+                   a.CheckIn.Date >= defaultFromDate.Date &&
+                   a.CheckIn.Date <= defaultToDate.Date &&
+                   a.Employee.IsActive)
                 .OrderByDescending(a => a.CheckIn)
                 .ToListAsync();
 
