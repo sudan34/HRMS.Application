@@ -7,55 +7,81 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col">
-            <h2 class="h4">Edit Employee</h2>
+            <h2 class="h3">Edit Employee</h2>
         </div>
     </div>
 
     <form asp-action="Edit" method="post" class="needs-validation" novalidate>
         <input type="hidden" asp-for="Id" />
 
-        <div class="mb-3">
-            <label asp-for="FirstName" class="form-label"></label>
-            <input asp-for="FirstName" class="form-control" />
-            <span asp-validation-for="FirstName" class="text-danger"></span>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="FirstName" class="form-label">First Name</label>
+                <input asp-for="FirstName" class="form-control" />
+                <span asp-validation-for="FirstName" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="LastName" class="form-label">Last Name</label>
+                <input asp-for="LastName" class="form-control" />
+                <span asp-validation-for="LastName" class="text-danger"></span>
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="LastName" class="form-label"></label>
-            <input asp-for="LastName" class="form-control" />
-            <span asp-validation-for="LastName" class="text-danger"></span>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="Email" class="form-label">Email</label>
+                <input asp-for="Email" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="Phone" class="form-label">Phone</label>
+                <input asp-for="Phone" class="form-control" />
+                <span asp-validation-for="Phone" class="text-danger"></span>
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="Email" class="form-label"></label>
-            <input asp-for="Email" class="form-control" />
-            <span asp-validation-for="Email" class="text-danger"></span>
-        </div>
-        <div class="mb-3">
-            <label asp-for="EmployeeId" class="form-label"></label>
-            <input asp-for="EmployeeId" class="form-control" />
-            <span asp-validation-for="EmployeeId" class="text-danger"></span>
-        </div>
-
-        <div class="mb-3">
-            <label asp-for="Phone" class="form-label"></label>
-            <input asp-for="Phone" class="form-control" />
-            <span asp-validation-for="Phone" class="text-danger"></span>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="EmployeeId" class="form-label">Employee ID</label>
+                <input asp-for="EmployeeId" class="form-control" />
+                <span asp-validation-for="EmployeeId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="DepartmentId" class="form-label">Department</label>
+                <select asp-for="DepartmentId" asp-items="@(new SelectList(ViewBag.Departments, "Id", "Name"))" class="form-select">
+                    <option value="">-- Select Department --</option>
+                </select>
+                <span asp-validation-for="DepartmentId" class="text-danger"></span>
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="DepartmentId" class="form-label">Department</label>
-            <select asp-for="DepartmentId" asp-items="@(new SelectList(ViewBag.Departments, "Id", "Name"))" class="form-select">
-                <option value="">-- Select Department --</option>
-            </select>
-            <span asp-validation-for="DepartmentId" class="text-danger"></span>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="JoinDate" class="form-label">Join Date</label>
+                <input asp-for="JoinDate" type="date" class="form-control" />
+                <span asp-validation-for="JoinDate" class="text-danger"></span>
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="JoinDate" class="form-label"></label>
-            <input asp-for="JoinDate" type="date" class="form-control" />
-            <span asp-validation-for="JoinDate" class="text-danger"></span>
+        <div class="form-check form-switch mb-3">
+            <input type="checkbox" class="form-check-input" id="resignSwitch"
+                   @(Model.ResignDate.HasValue ? "checked" : "") />
+            <label class="form-check-label" for="resignSwitch">Mark as Resigned</label>
         </div>
+
+        <div id="resignDateGroup" class=" col-md-6 mb-3" style="@(Model.ResignDate.HasValue ? "" : "display: none;")">
+            <label asp-for="ResignDate" class="form-label">Resignation Date *</label>
+            <input asp-for="ResignDate" type="date" class="form-control" required="@(Model.ResignDate.HasValue ? "required" : null)" />
+            <span asp-validation-for="ResignDate" class="text-danger"></span>
+        </div>
+
+@*         <input type="hidden" name="IsActive" value='@(Model.ResignDate.HasValue ? "false" : "true")' />
+ *@
+        @{
+            var isActiveValue = Model.ResignDate.HasValue ? "false" : "true";
+        }
+        <input type="hidden" name="IsActive" value="@isActiveValue" />
+
 
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">Update</button>
@@ -63,3 +89,40 @@
         </div>
     </form>
 </div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const resignSwitch = document.getElementById('resignSwitch');
+            const resignDateGroup = document.getElementById('resignDateGroup');
+            const resignDateInput = document.querySelector('input[name="ResignDate"]');
+            const isActiveInput = document.querySelector('input[name="IsActive"]');
+
+            function updateResignState() {
+                const isChecked = resignSwitch.checked;
+                resignDateGroup.style.display = isChecked ? 'block' : 'none';
+                resignDateInput.required = isChecked;
+                isActiveInput.value = isChecked ? 'false' : 'true';
+
+                if (isChecked && !resignDateInput.value) {
+                    const today = new Date().toISOString().split('T')[0];
+                    resignDateInput.value = today;
+                }
+
+                if (!isChecked) {
+                    resignDateInput.value = '';
+                }
+            }
+
+            resignSwitch.addEventListener('change', updateResignState);
+
+            document.querySelector('form').addEventListener('submit', function (event) {
+                if (resignSwitch.checked && !resignDateInput.value) {
+                    event.preventDefault();
+                    alert('Resignation date is required when marking employee as resigned.');
+                    resignDateInput.focus();
+                }
+            });
+        });
+    </script>
+}

@@ -7,22 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-//builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-//    .AddCookie(options =>
-//    {
-//        options.LoginPath = "/Account/Login";
-//        options.AccessDeniedPath = "/Account/AccessDenied";
-//    });
-
-//builder.Services.AddAuthorization(options =>
-//{
-//    options.AddPolicy("SuperAdmin", policy => policy.RequireRole("SuperAdmin"));
-//    options.AddPolicy("HR", policy => policy.RequireRole("HR", "SuperAdmin"));
-//    options.AddPolicy("Employee", policy => policy.RequireRole("Employee", "HR", "SuperAdmin"));
-//});
+//builder.Services.AddDbContext<ApplicationDbContext>(options =>
+//        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -68,6 +54,9 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+
+app.UseStatusCodePagesWithReExecute("/Home/StatusCode", "?code={0}");
+
 
 app.UseHttpsRedirection();
 

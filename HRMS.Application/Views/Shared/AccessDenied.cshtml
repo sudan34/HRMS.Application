@@ -1,0 +1,16 @@
+﻿@{
+    ViewData["Title"] = "Access Denied";
+}
+
+<div class="container">
+    <h1 class="text-danger">Access Denied</h1>
+    <p>You don't have permission to access this resource.</p>
+
+    @if (User.Identity.IsAuthenticated)
+    {
+        <p>You are logged in as: @User.Identity.Name</p>
+    }
+
+    <a href="/" class="btn btn-primary">Go to Home Page</a>
+    <a href="javascript:history.back()" class="btn btn-secondary">Go Back</a>
+</div>

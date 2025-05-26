@@ -30,7 +30,7 @@ namespace HRMS.Application.Models
         public string Phone { get; set; } = string.Empty;
 
         public DateTime JoinDate { get; set; } = DateTime.Now;
-
+        public DateTime? ResignDate { get; set; }
         public int DepartmentId { get; set; } = 1;
         public Department? Department { get; set; }
 

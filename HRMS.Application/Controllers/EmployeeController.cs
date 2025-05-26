@@ -41,7 +41,7 @@ namespace HRMS.Application.Controllers
             var employeeIdClaim = User.FindFirst("EmployeeId");
             if (employeeIdClaim == null)
             {
-                return Forbid();
+                return RedirectToAction("AccessDenied", "Home");
             }
             // Get current logged-in user's EmployeeId from Claims
             var currentEmployeeId = int.Parse(employeeIdClaim.Value);
@@ -50,7 +50,7 @@ namespace HRMS.Application.Controllers
 
             if (!isHRorAdmin && id != currentEmployeeId)
             {
-                return Forbid();
+                return RedirectToAction("AccessDenied", "Home");
             }
 
             var employee = await _context.Employees
@@ -136,6 +136,13 @@ namespace HRMS.Application.Controllers
                     existingEmployee.Phone = employee.Phone;
                     existingEmployee.JoinDate = employee.JoinDate;
                     existingEmployee.DepartmentId = employee.DepartmentId;
+                    existingEmployee.ResignDate = employee.ResignDate;
+                    existingEmployee.IsActive = employee.IsActive;
+
+                    if (employee.ResignDate.HasValue)
+                    {
+                        existingEmployee.IsActive = false;
+                    }
 
                     await _context.SaveChangesAsync();
                 }

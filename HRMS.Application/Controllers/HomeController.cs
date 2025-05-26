@@ -1,6 +1,7 @@
 using HRMS.Application.Data;
 using HRMS.Application.Models;
 using HRMS.Application.ViewModel;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
@@ -98,10 +99,27 @@ namespace HRMS.Application.Controllers
             return View();
         }
 
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        [Route("Home/Error")]
         public IActionResult Error()
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            var exceptionHandlerPathFeature = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
+            ViewData["ErrorMessage"] = exceptionHandlerPathFeature?.Error.Message;
+            return View();
+        }
+
+        [Route("Home/StatusCode/{code?}")]
+        public IActionResult StatusCode(int? code)
+        {
+            if (code == 404)
+            {
+                return View("NotFound");
+            }
+            else if (code == 403)
+            {
+                return View("AccessDenied");
+            }
+
+            return View("Error");
         }
     }
 }

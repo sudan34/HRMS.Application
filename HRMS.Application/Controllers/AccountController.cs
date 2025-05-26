@@ -107,33 +107,40 @@ namespace HRMS.Application.Controllers
             ViewData["ReturnUrl"] = returnUrl;
             if (ModelState.IsValid)
             {
-                // First create the employee record
-                var employee = new Employee
-                {
-                    EmployeeId = model.EmployeeId,
-                    FirstName = model.FirstName,
-                    LastName = model.LastName,
-                    Email = model.Email,
-                    Phone = model.Phone,
-                    JoinDate = DateTime.Now,
-                    DepartmentId = model.DepartmentId,
-                    IsActive = true
-                };
+                // Check if employee exists and email matches
+                var employee = await _context.Employees
+                    .FirstOrDefaultAsync(e => e.EmployeeId == model.EmployeeId.ToString() && e.Email == model.Email);
 
-                // Then create the user
+                if (employee == null)
+                {
+                    ModelState.AddModelError(string.Empty, "Invalid Employee ID or Email. Please check your details.");
+                    return View(model);
+                }
+
+                // Check if user already exists for this employee
+                var existingUser = await _userManager.Users
+                    .FirstOrDefaultAsync(u => u.Employee.Id == model.EmployeeId);
+
+                if (existingUser != null)
+                {
+                    ModelState.AddModelError(string.Empty, "An account already exists for this employee.");
+                    return View(model);
+                }
+
+                // Create the user
                 var user = new ApplicationUser
                 {
                     UserName = model.Email,
                     Email = model.Email,
                     Employee = employee,
-                    CustomRoleType = model.Role.ToString() ?? "Employee"
+                    CustomRoleType = "Employee"
                 };
 
                 var result = await _userManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
                     // Assign role to user
-                    await _userManager.AddToRoleAsync(user, model.Role.ToString());
+                    await _userManager.AddToRoleAsync(user, "Employee");
 
                     _logger.LogInformation("User created a new account with password.");
 

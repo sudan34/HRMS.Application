@@ -20,15 +20,7 @@ namespace HRMS.Application.ViewModel
     {
         [Required]
         [Display(Name = "Employee ID")]
-        public string EmployeeId { get; set; }
-
-        [Required]
-        [Display(Name = "First Name")]
-        public string FirstName { get; set; }
-
-        [Required]
-        [Display(Name = "Last Name")]
-        public string LastName { get; set; }
+        public int EmployeeId { get; set; }
 
         [Required]
         [EmailAddress]
@@ -46,15 +38,6 @@ namespace HRMS.Application.ViewModel
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; }
 
-        [Phone]
-        [Display(Name = "Phone number")]
-        public string Phone { get; set; }
-
-        [Display(Name = "Department")]
-        public int DepartmentId { get; set; }
-
-        [Display(Name = "Role")]
-        public UserRole Role { get; set; } = UserRole.Employee;
     }
 
     public class ForgotPasswordViewModel
