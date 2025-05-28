@@ -38,17 +38,26 @@ namespace HRMS.Application.Controllers
                 return NotFound();
             }
 
+            // HR and Admins can view any employee
+            if (User.IsInRole("HR") || User.IsInRole("SuperAdmin"))
+            {
+                var employees = await _context.Employees
+                    .Include(e => e.Department)
+                    .FirstOrDefaultAsync(m => m.Id == id);
+
+                if (employees == null) return NotFound();
+                return View(employees);
+            }
+
+            // Regular employees can only view their own profile
             var employeeIdClaim = User.FindFirst("EmployeeId");
-            if (employeeIdClaim == null)
+
+            if (employeeIdClaim == null || !int.TryParse(employeeIdClaim.Value, out int currentEmployeeId))
             {
                 return RedirectToAction("AccessDenied", "Home");
             }
-            // Get current logged-in user's EmployeeId from Claims
-            var currentEmployeeId = int.Parse(employeeIdClaim.Value);
 
-            var isHRorAdmin = User.IsInRole("HR") || User.IsInRole("SuperAdmin");
-
-            if (!isHRorAdmin && id != currentEmployeeId)
+            if (id != currentEmployeeId)
             {
                 return RedirectToAction("AccessDenied", "Home");
             }
@@ -190,31 +199,33 @@ namespace HRMS.Application.Controllers
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var employee = await _context.Employees.FindAsync(id);
-
-            if (employee != null)
+            if (employee == null)
             {
-                employee.IsActive = false; // Soft delete
-                _context.Update(employee);
-
-                // Optional: Deactivate login if Identity is connected
-                ApplicationUser user = null;
-
-                if (int.TryParse(employee.EmployeeId, out int empIdInt))
-                {
-                    user = await _userManager.Users
-                        .FirstOrDefaultAsync(u => u.EmployeeId == empIdInt);
-                }
-
-                if (user != null)
-                {
-                    user.LockoutEnabled = true;
-                    user.LockoutEnd = DateTimeOffset.MaxValue; // Effectively disables login
-                    await _userManager.UpdateAsync(user);
-                }
-
-                await _context.SaveChangesAsync();
+                return NotFound();
             }
-            
+
+            employee.IsActive = false; // Soft delete
+            employee.ResignDate = DateTime.Now;
+            _context.Employees.Update(employee);
+
+            // Optional: Deactivate login if Identity is connected
+            ApplicationUser user = null;
+
+            if (int.TryParse(employee.EmployeeId, out int empIdInt))
+            {
+                user = await _userManager.Users
+                    .FirstOrDefaultAsync(u => u.EmployeeId == empIdInt);
+            }
+
+            if (user != null)
+            {
+                user.LockoutEnabled = true;
+                user.LockoutEnd = DateTimeOffset.MaxValue; // Effectively disables login
+                await _userManager.UpdateAsync(user);
+            }
+
+            await _context.SaveChangesAsync();
+
             return RedirectToAction(nameof(Index));
         }
 
