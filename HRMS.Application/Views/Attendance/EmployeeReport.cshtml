@@ -4,69 +4,60 @@
     ViewData["Title"] = $"{Model.FullName} - Attendance Report";
     var fromDate = ViewBag.FromDate as DateTime? ?? DateTime.Today.AddDays(-30);
     var toDate = ViewBag.ToDate as DateTime? ?? DateTime.Today;
+    var employeeId = ViewBag.EmployeeId as string;
 }
 
-<div class="card">
-    <div class="card-header bg-primary text-white">
-        <div class="d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">
-                <i class="fas fa-user-clock"></i> @Model.FullName - Attendance Report
-            </h4>
-            <div>
-                <form method="get" class="form-inline">
-                    <div class="form-group mr-2">
-                        <input type="date" name="fromDate" value="@fromDate.ToString("yyyy-MM-dd")" class="form-control form-control-sm">
-                    </div>
-                    <div class="form-group mr-2">
-                        <input type="date" name="toDate" value="@toDate.ToString("yyyy-MM-dd")" class="form-control form-control-sm">
-                    </div>
-                    <button type="submit" class="btn btn-light btn-sm">
-                        <i class="fas fa-filter"></i> Filter
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-user-clock me-2"></i> @Model.FullName - Attendance Report</h5>
+        <form method="get" class="d-flex gap-2 align-items-center">
+            <input type="hidden" name="employeeId" value="@employeeId" />
+            <input type="date" name="fromDate" value="@fromDate:yyyy-MM-dd" class="form-control form-control-sm" />
+            <input type="date" name="toDate" value="@toDate:yyyy-MM-dd" class="form-control form-control-sm" />
+            <button type="submit" class="btn btn-light btn-sm">
+                <i class="fas fa-filter"></i> Filter
+            </button>
 
+        </form>
+        <a asp-controller="Attendance" asp-action="Summary" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-arrow-left-circle me-1"> Back</i>
+        </a>
+    </div>
     <div class="card-body">
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card bg-light">
-                    <div class="card-body text-center">
-                        <h6 class="card-title">Employee ID</h6>
-                        <p class="card-text">@Model.EmployeeId</p>
+        <div class="row text-center mb-4">
+            <div class="col-md-3 mb-2">
+                <div class="card bg-light border-1">
+                    <div class="card-body">
+                        <strong>Employee ID</strong><br />@Model.EmployeeId
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-light">
-                    <div class="card-body text-center">
-                        <h6 class="card-title">Email</h6>
-                        <p class="card-text">@Model.Email</p>
+            <div class="col-md-3 mb-2">
+                <div class="card bg-light border-1">
+                    <div class="card-body">
+                        <strong>Email</strong><br />@Model.Email
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-light">
-                    <div class="card-body text-center">
-                        <h6 class="card-title">Department</h6>
-                        <p class="card-text">@Model.Department?.Name</p>
+            <div class="col-md-3 mb-2">
+                <div class="card bg-light border-1">
+                    <div class="card-body">
+                        <strong>Department</strong><br />@Model.Department?.Name
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-light">
-                    <div class="card-body text-center">
-                        <h6 class="card-title">Join Date</h6>
-                        <p class="card-text">@Model.JoinDate.ToString("dd MMM yyyy")</p>
+            <div class="col-md-3 mb-2">
+                <div class="card bg-light border-1">
+                    <div class="card-body">
+                        <strong>Join Date</strong><br />@Model.JoinDate.ToString("dd MMM yyyy")
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="table-responsive">
-            <table class="table table-bordered table-hover">
-                <thead class="thead-dark">
+            <table class="table table-hover table-bordered align-middle">
+                <thead class="table-dark text-center">
                     <tr>
                         <th>Date</th>
                         <th>Day</th>

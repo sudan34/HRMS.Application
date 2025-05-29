@@ -51,11 +51,6 @@
         }
 
         <div class="mb-4 d-flex justify-content-between">
-            @*  <form method="post" asp-action="SyncWithDevice">
-                <button type="submit" class="btn btn-success">
-                    <i class="fas fa-sync-alt"></i> Sync with Device
-                </button>
-            </form> *@
             <form method="post" asp-action="SyncWithDevice" id="syncForm">
                 <button type="submit" class="btn btn-success" id="syncButton">
                     <i class="fas fa-sync-alt"></i>
@@ -117,7 +112,19 @@
                                 </span>
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-outline-primary"
+                                <button class="btn btn-sm btn-outline-primary edit-btn"
+                                        data-id="@item.Id">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+
+                                @* <button class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editModal"
+                                        data-id="@item.Id">
+                                    <i class="fas fa-edit"></i>
+                                </button> *@
+
+                                @* <button class="btn btn-sm btn-outline-primary"
                                         data-bs-toggle="modal"
                                         data-bs-target="#editModal"
                                         data-id="@item.Id"
@@ -125,7 +132,7 @@
                                         data-checkout="@item.CheckOut?.ToString("yyyy-MM-ddTHH:mm")"
                                         data-status="@item.Status">
                                     <i class="fas fa-edit"></i>
-                                </button>
+                                </button> *@
                             </td>
                         </tr>
                     }
@@ -136,86 +143,38 @@
 </div>
 
 <!-- Edit Modal -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form asp-action="Edit" method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editModalLabel">Edit Attendance Record</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="editId" name="Id" />
-                    <div class="mb-3">
-                        <label for="editCheckIn" class="form-label">Check In</label>
-                        <input type="datetime-local" class="form-control" id="editCheckIn" name="CheckIn">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editCheckOut" class="form-label">Check Out</label>
-                        <input type="datetime-local" class="form-control" id="editCheckOut" name="CheckOut">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editStatus" class="form-label">Status</label>
-                        <select class="form-select" id="editStatus" name="Status">
-                            <option value="0">Present</option>
-                            <option value="1">Late</option>
-                            <option value="2">Absent</option>
-                            <option value="3">On Leave</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Save changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<div id="editModalContainer"></div>
+<!-- Edit Modal -->
 
-<!-- Summary Card -->
-<div class="card mt-4">
-    <div class="card-header bg-info text-white">
-        <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Attendance Summary</h5>
-    </div>
-    <div class="card-body">
-        @await Component.InvokeAsync("AttendanceReport", new {
-        fromDate = ViewBag.FromDate,
-                toDate = ViewBag.ToDate
-                })
-    </div>
-</div>
 
 @section Scripts {
     <!-- SweetAlert2 CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @* <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> *@
 
     <script>
         $(document).ready(function () {
-
-            $('#attendanceTable').DataTable({
+             var table = $('#attendanceTable').DataTable({
                 responsive: true,
                 dom: '<"top"lf>rt<"bottom"ip>',
                 pageLength: 25
             });
 
-            var editModal = document.getElementById('editModal');
-            editModal.addEventListener('show.bs.modal', function (event) {
-                var button = event.relatedTarget;
-                var id = button.getAttribute('data-id');
-                var checkIn = button.getAttribute('data-checkin');
-                var checkOut = button.getAttribute('data-checkout');
-                var status = button.getAttribute('data-status');
+            // var editModal = document.getElementById('editModal');
+            // editModal?.addEventListener('show.bs.modal', function (event) {
+            //     var button = event.relatedTarget;
+            //     var id = button.getAttribute('data-id');
 
-                editModal.querySelector('#editId').value = id;
-                editModal.querySelector('#editCheckIn').value = checkIn;
-                editModal.querySelector('#editCheckOut').value = checkOut || '';
-                editModal.querySelector('#editStatus').value = status;
+            $(document).on('click', '.edit-btn', function() {
+                var id = $(this).data('id');
+
+                // Load the partial view via AJAX
+                $.get('@Url.Action("GetAttendanceForEdit", "Attendance")', { id: id }, function(data) {
+                    $('#editModalContainer').html(data);
+                    var modal = new bootstrap.Modal(document.getElementById('editModal'));
+                    modal.show();
+                });
             });
-        });
-    </script>
-    <script>
-        $(document).ready(function () {
+
             $('#syncForm').submit(function(e) {
                 e.preventDefault();
 

@@ -2,46 +2,53 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 
-@{
-    var currentUser = await UserManager.GetUserAsync(User);
-}
-
 <ul class="navbar-nav">
-    @if (SignInManager.IsSignedIn(User))
-    {
+@if (SignInManager.IsSignedIn(User))
+{
+    var currentUser = await UserManager.GetUserAsync(User);
+
         <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                <i class="bi bi-person-circle"></i> @currentUser?.Employee?.FullName
+            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-person-circle me-1"></i> @currentUser?.Employee?.FullName
             </a>
-            <ul class="dropdown-menu dropdown-menu-end">
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                 <li>
-                    <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">
-                        <i class="bi bi-person"></i> Profile
+                    <a class="dropdown-item" asp-controller="Employee" asp-action="Profile">
+                        <i class="bi bi-person me-2"></i> My Profile
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/ChangePassword">
-                        <i class="bi bi-key"></i> Change Password
+                    <a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">
+                        <i class="bi bi-key me-2"></i> Change Password
                     </a>
                 </li>
+               @*  @if (User.IsInRole("HR") || User.IsInRole("SuperAdmin"))
+                {
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" asp-controller="Employee" asp-action="Index">
+                            <i class="bi bi-people me-2"></i> Employee Management
+                        </a>
+                    </li>
+                } *@
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <form class="form-inline" asp-controller="Account" asp-action="Logout" method="post">
                         <button type="submit" class="dropdown-item">
-                            <i class="bi bi-box-arrow-right"></i> Logout
+                            <i class="bi bi-box-arrow-right me-2"></i> Logout
                         </button>
                     </form>
                 </li>
             </ul>
         </li>
-    }
-    else
-    {
+}
+else
+{
         <li class="nav-item">
             <a class="nav-link" asp-controller="Account" asp-action="Register">Register</a>
         </li>
         <li class="nav-item">
             <a class="nav-link" asp-controller="Account" asp-action="Login">Login</a>
         </li>
-    }
+}
 </ul>

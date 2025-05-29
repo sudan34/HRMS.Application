@@ -229,6 +229,27 @@ namespace HRMS.Application.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [Authorize]
+        public async Task<IActionResult> Profile()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.EmployeeId == null)
+            {
+                return NotFound();
+            }
+
+            var employee = await _context.Employees
+                .Include(e => e.Department)
+                .FirstOrDefaultAsync(e => e.Id == user.EmployeeId);
+
+            if (employee == null)
+            {
+                return NotFound();
+            }
+
+            return View(employee);
+        }
+
         private bool EmployeeExists(int id)
         {
             return _context.Employees.Any(e => e.Id == id);

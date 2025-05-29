@@ -1,22 +1,26 @@
 ﻿using HRMS.Application.Data;
 using HRMS.Application.Models;
 using HRMS.Application.Services;
+using HRMS.Application.ViewModel;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace HRMS.Application.Controllers
 {
-    //[Authorize]
+    [Authorize]
     public class AttendanceController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly IZkDeviceService _zkDeviceService;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public AttendanceController(ApplicationDbContext context, IZkDeviceService zkDeviceService)
+        public AttendanceController(ApplicationDbContext context, IZkDeviceService zkDeviceService, UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _zkDeviceService = zkDeviceService;
+            _userManager = userManager;
         }
 
         public async Task<IActionResult> Index(DateTime? fromDate, DateTime? toDate)
@@ -66,35 +70,34 @@ namespace HRMS.Application.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        public async Task<List<AttendanceReportViewModel>> GetAttendanceReport(DateTime fromDate, DateTime toDate)
+        public async Task<IActionResult> Summary(DateTime? fromDate, DateTime? toDate)
         {
-            return await _context.Employees
-                .Include(e => e.Attendances)
-                .Select(e => new AttendanceReportViewModel
-                {
-                    EmployeeId = e.EmployeeId,
-                    FullName = e.FullName,
-                    Email = e.Email,
-                    TotalPresent = e.Attendances.Count(a =>
-                        a.CheckIn.Date >= fromDate.Date &&
-                        a.CheckIn.Date <= toDate.Date &&
-                        a.Status == AttendanceStatus.Present),
-                    TotalLate = e.Attendances.Count(a =>
-                        a.CheckIn.Date >= fromDate.Date &&
-                        a.CheckIn.Date <= toDate.Date &&
-                        a.Status == AttendanceStatus.Late),
-                    TotalAbsent = (toDate.Date - fromDate.Date).Days + 1 -
-                        e.Attendances.Count(a =>
-                            a.CheckIn.Date >= fromDate.Date &&
-                            a.CheckIn.Date <= toDate.Date)
-                })
-                .OrderBy(e => e.FullName)
-                .ToListAsync();
-        }
+            var defaultFromDate = fromDate ?? DateTime.Today.AddDays(-30);
+            var defaultToDate = toDate ?? DateTime.Today;
 
+            if (defaultFromDate > defaultToDate)
+            {
+                TempData["ErrorMessage"] = "End date must be after start date";
+                return RedirectToAction(nameof(Index));
+            }
+
+            //var report = await GetAttendanceReport(defaultFromDate, defaultToDate);
+
+            ViewBag.FromDate = defaultFromDate;
+            ViewBag.ToDate = defaultToDate;
+
+            return View();
+        }
+       
         [HttpGet]
         public async Task<IActionResult> EmployeeReport(string employeeId, DateTime? fromDate, DateTime? toDate)
         {
+            if (string.IsNullOrEmpty(employeeId))
+            {
+                TempData["ErrorMessage"] = "Employee ID is required.";
+                return RedirectToAction(nameof(Index));
+            }
+
             // Set default date range if not provided
             var defaultFromDate = fromDate ?? DateTime.Today.AddDays(-30);
             var defaultToDate = toDate ?? DateTime.Today;
@@ -122,6 +125,7 @@ namespace HRMS.Application.Controllers
             }
 
             // Prepare view data
+            ViewBag.EmployeeId = employeeId;
             ViewBag.FromDate = defaultFromDate;
             ViewBag.ToDate = defaultToDate;
 
@@ -131,17 +135,29 @@ namespace HRMS.Application.Controllers
         [Authorize(Roles = "Employee")]
         public async Task<IActionResult> MyAttendance(DateTime? fromDate, DateTime? toDate)
         {
-            var employeeId = User.FindFirst("EmployeeId")?.Value;
-            if (string.IsNullOrEmpty(employeeId))
+            // Get the current user
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
             {
                 return Unauthorized();
             }
+
+            // Get the employee with the device enrollment ID
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.Id == user.EmployeeId);
+            if (employee == null)
+            {
+                return Unauthorized();
+            }
+
+            var enrollmentId = employee.EmployeeId;
+
             var defaultFromDate = fromDate ?? DateTime.Today.AddDays(-7);
             var defaultToDate = toDate ?? DateTime.Today;
 
             var attendances = await _context.Attendances
                 .Include(a => a.Employee)
-                .Where(a => a.EmployeeId == employeeId &&
+                .Where(a => a.EmployeeId == enrollmentId &&
                    a.CheckIn.Date >= defaultFromDate.Date &&
                    a.CheckIn.Date <= defaultToDate.Date &&
                    a.Employee.IsActive)
@@ -160,9 +176,7 @@ namespace HRMS.Application.Controllers
         {
             var attendance = await _context.Attendances.FindAsync(id);
             if (attendance == null)
-            {
                 return NotFound();
-            }
 
             attendance.CheckIn = checkIn;
             attendance.CheckOut = checkOut;
@@ -174,5 +188,92 @@ namespace HRMS.Application.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAttendanceForEdit(int id)
+        {
+            var attendance = await _context.Attendances
+                .Include(a => a.Employee)
+                .FirstOrDefaultAsync(a => a.Id == id);
+
+            if (attendance == null)
+            {
+                return NotFound();
+            }
+
+            var model = new EditAttendanceViewModel
+            {
+                Id = attendance.Id,
+                EmployeeId = attendance.EmployeeId,
+                EmployeeName = $"{attendance.Employee.FirstName} {attendance.Employee.LastName}",
+                CheckIn = attendance.CheckIn,
+                CheckOut = attendance.CheckOut,
+                Status = attendance.Status
+            };
+
+            return PartialView("_EditAttendance", model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(EditAttendanceViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return PartialView("_EditAttendance", model);
+                }
+
+                TempData["ErrorMessage"] = "Invalid data provided.";
+                return RedirectToAction("Index");
+            }
+
+            var attendance = await _context.Attendances
+                 .Include(a => a.Employee)
+                 .FirstOrDefaultAsync(a => a.Id == model.Id);
+
+            if (attendance == null)
+            {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return NotFound();
+                }
+
+                TempData["ErrorMessage"] = "Attendance record not found.";
+                return RedirectToAction("Index");
+            }
+
+            attendance.CheckIn = model.CheckIn;
+            attendance.CheckOut = model.CheckOut;
+            attendance.Status = model.Status;
+
+            try
+            {
+                _context.Update(attendance);
+                await _context.SaveChangesAsync();
+
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = true });
+                }
+
+                TempData["SuccessMessage"] = "Attendance record updated successfully.";
+            }
+            catch (Exception ex)
+            {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return Json(new { success = false, error = ex.Message });
+                }
+
+                TempData["ErrorMessage"] = "Error updating attendance record: " + ex.Message;
+            }
+
+            return RedirectToAction("Index", new
+            {
+                fromDate = ViewBag.FromDate ?? model.CheckIn.Date,
+                toDate = ViewBag.ToDate ?? model.CheckIn.Date
+            });
+        }
     }
 }

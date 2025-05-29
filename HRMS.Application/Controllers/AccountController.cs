@@ -1,11 +1,14 @@
 ﻿using HRMS.Application.Data;
 using HRMS.Application.Models;
 using HRMS.Application.ViewModel;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace HRMS.Application.Controllers
 {
@@ -57,6 +60,14 @@ namespace HRMS.Application.Controllers
 
                 if (result.Succeeded)
                 {
+                    var user = await _userManager.FindByEmailAsync(model.Email);
+
+                    // Add EmployeeId claim to the user if needed
+                    if (!(await _userManager.GetClaimsAsync(user)).Any(c => c.Type == "EmployeeId"))
+                    {
+                        await _userManager.AddClaimAsync(user, new Claim("EmployeeId", user.EmployeeId.ToString()));
+                    }
+
                     _logger.LogInformation("User logged in.");
                     return RedirectToLocal(returnUrl);
                 }
@@ -142,6 +153,8 @@ namespace HRMS.Application.Controllers
                     // Assign role to user
                     await _userManager.AddToRoleAsync(user, "Employee");
 
+                    // Add EmployeeId claim
+                    await _userManager.AddClaimAsync(user, new Claim("EmployeeId", employee.Id.ToString()));
                     _logger.LogInformation("User created a new account with password.");
 
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
@@ -288,6 +301,50 @@ namespace HRMS.Application.Controllers
             return View();
         }
 
+        [Authorize]
+        [HttpGet]
+        public IActionResult ChangePassword()
+        {
+            return View();
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+            }
+
+            var changePasswordResult = await _userManager.ChangePasswordAsync(
+                user,
+                model.OldPassword,
+                model.NewPassword);
+
+            if (!changePasswordResult.Succeeded)
+            {
+                foreach (var error in changePasswordResult.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+                return View(model);
+            }
+
+            await _signInManager.RefreshSignInAsync(user);
+            _logger.LogInformation("User changed their password successfully.");
+
+            TempData["SuccessMessage"] = "Your password has been changed successfully.";
+            return RedirectToAction(nameof(ChangePassword));
+        }
+
         #region Helpers
 
         private void AddErrors(IdentityResult result)
@@ -309,6 +366,7 @@ namespace HRMS.Application.Controllers
                 return RedirectToAction(nameof(HomeController.Dashboard), "Home");
             }
         }
+
 
         #endregion
     }

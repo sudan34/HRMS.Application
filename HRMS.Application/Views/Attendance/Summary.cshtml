@@ -1,0 +1,47 @@
+﻿@{
+    ViewData["Title"] = "Attendance Summary";
+}
+
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h4><i class="fas fa-chart-bar"></i> Attendance Summary</h4>
+            </div>
+            <div class="col-md-6 d-flex justify-content-end">
+                <form method="get" class="row g-2">
+                    <div class="col-auto">
+                        <label class="col-form-label">From:</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" name="fromDate" value="@ViewBag.FromDate?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">To:</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" name="toDate" value="@ViewBag.ToDate?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-light btn-sm">
+                            <i class="fas fa-filter"></i> Filter
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body">
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+        }
+
+        <!-- ViewComponent -->
+        @await Component.InvokeAsync("AttendanceReport", new {
+        fromDate = ViewBag.FromDate,
+                toDate = ViewBag.ToDate
+                })
+    </div>
+</div>

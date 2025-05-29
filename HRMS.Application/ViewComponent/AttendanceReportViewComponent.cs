@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 // Change the namespace from ViewComponent to your application's namespace
 namespace HRMS.Application.ViewComponents // Changed from "ViewComponent"
 {
-    public class AttendanceReportViewComponent : Microsoft.AspNetCore.Mvc.ViewComponent // Fully qualified
+    public class AttendanceReportViewComponent : ViewComponent // Fully qualified
     {
         private readonly ApplicationDbContext _context;
 
@@ -22,12 +22,14 @@ namespace HRMS.Application.ViewComponents // Changed from "ViewComponent"
         {
             var reportData = _context.Employees
                 .Include(e => e.Attendances)
+                .Include(e => e.Department)
                 .Select(e => new
                 {
                     e.EmployeeId,
                     e.FirstName,
                     e.LastName,
                     e.Email,
+                    Department = e.Department.Name,
                     Attendances = e.Attendances.Where(a =>
                         a.CheckIn.Date >= fromDate.Date &&
                         a.CheckIn.Date <= toDate.Date)
@@ -38,6 +40,7 @@ namespace HRMS.Application.ViewComponents // Changed from "ViewComponent"
                     EmployeeId = e.EmployeeId,
                     FullName = $"{e.FirstName} {e.LastName}",
                     Email = e.Email,
+                    Department = e.Department,
                     TotalPresent = e.Attendances.Count(a => a.Status == AttendanceStatus.Present),
                     TotalLate = e.Attendances.Count(a => a.Status == AttendanceStatus.Late),
                     TotalAbsent = (toDate.Date - fromDate.Date).Days + 1 - e.Attendances.Count()

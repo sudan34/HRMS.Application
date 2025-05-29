@@ -16,7 +16,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 //builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     // Password settings
     options.Password.RequireDigit = true;
@@ -37,8 +37,19 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     options.User.RequireUniqueEmail = true;
 })
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
 
+// Add authentication services
+builder.Services.AddAuthentication()
+    .AddCookie(options =>
+    {
+        options.Cookie.HttpOnly = true;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+        options.LoginPath = "/Account/Login";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+        options.SlidingExpiration = true;
+    });
 
 builder.Services.AddScoped<IZkDeviceService, ZkDeviceService>();
 
@@ -65,12 +76,6 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapStaticAssets();
-
-//app.MapControllerRoute(
-//    name: "account",
-//    pattern: "Account/{action=Login}/{id?}",
-//    defaults: new { controller = "Account" });
-
 
 app.MapControllerRoute(
     name: "default",
