@@ -4,7 +4,6 @@ using HRMS.Application.ViewModel;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
 
 namespace HRMS.Application.Controllers
 {

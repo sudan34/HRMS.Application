@@ -1,101 +1,137 @@
 using HRMS.Application.Data;
 using HRMS.Application.Models;
 using HRMS.Application.Services;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-var builder = WebApplication.CreateBuilder(args);
-
-//builder.Services.AddDbContext<ApplicationDbContext>(options =>
-//        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
-
-//builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+namespace HRMS.Application
 {
-    // Password settings
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireNonAlphanumeric = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequiredLength = 8;
-    options.Password.RequiredUniqueChars = 1;
-
-    // Lockout settings
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-    options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.AllowedForNewUsers = true;
-
-    // User settings
-    options.User.AllowedUserNameCharacters =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
-    options.User.RequireUniqueEmail = true;
-})
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders();
-
-// Add authentication services
-builder.Services.AddAuthentication()
-    .AddCookie(options =>
+    public class Program
     {
-        options.Cookie.HttpOnly = true;
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
-        options.LoginPath = "/Account/Login";
-        options.AccessDeniedPath = "/Account/AccessDenied";
-        options.SlidingExpiration = true;
-    });
+        public static async Task Main(string[] args)
+        {
+            var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<IZkDeviceService, ZkDeviceService>();
+            ConfigureServices(builder.Services, builder.Configuration);
+            var app = builder.Build();
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
+            ConfigureMiddleware(app, builder.Environment);
+            await InitializeDatabase(app);
 
-var app = builder.Build();
+            app.Run();
+        }
+        private static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+        {
+            // Database Configuration
+            ConfigureDatabase(services, configuration);
 
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
-}
+            // Identity Configuration
+            ConfigureIdentity(services);
 
-app.UseStatusCodePagesWithReExecute("/Home/StatusCode", "?code={0}");
+            // Authentication Configuration
+            ConfigureAuthentication(services);
 
+            // Application Services
+            ConfigureApplicationServices(services);
 
-app.UseHttpsRedirection();
+            // MVC Configuration
+            services.AddControllersWithViews();
+        }
+        private static void ConfigureDatabase(IServiceCollection services, IConfiguration configuration)
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlServer(connectionString));
+        }
 
-app.UseRouting();
+        private static void ConfigureIdentity(IServiceCollection services)
+        {
+            services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+            {
+                ConfigurePasswordOptions(options);
+                ConfigureLockoutOptions(options);
+                ConfigureUserOptions(options);
+            })
+            .AddRoles<IdentityRole>()
+            .AddEntityFrameworkStores<ApplicationDbContext>()
+            .AddDefaultTokenProviders();
+        }
 
-app.UseAuthorization();
+        private static void ConfigurePasswordOptions(IdentityOptions options)
+        {
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireNonAlphanumeric = true;
+            options.Password.RequireUppercase = true;
+            options.Password.RequiredLength = 8;
+            options.Password.RequiredUniqueChars = 1;
+        }
 
-app.MapStaticAssets();
+        private static void ConfigureLockoutOptions(IdentityOptions options)
+        {
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.AllowedForNewUsers = true;
+        }
 
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Account}/{action=Login}/{id?}")
-    .WithStaticAssets();
+        private static void ConfigureUserOptions(IdentityOptions options)
+        {
+            options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+            options.User.RequireUniqueEmail = true;
+        }
 
+        private static void ConfigureAuthentication(IServiceCollection services)
+        {
+            services.AddAuthentication()
+                .AddCookie(options =>
+                {
+                    options.Cookie.HttpOnly = true;
+                    options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+                    options.LoginPath = "/Account/Login";
+                    options.AccessDeniedPath = "/Account/AccessDenied";
+                    options.SlidingExpiration = true;
+                });
+        }
 
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        await DatabaseSeeder.SeedRolesAndAdminAsync(services);
+        private static void ConfigureApplicationServices(IServiceCollection services)
+        {
+            services.AddScoped<IZkDeviceService, ZkDeviceService>();
+        }
+
+        private static void ConfigureMiddleware(WebApplication app, IWebHostEnvironment env)
+        {
+            if (!env.IsDevelopment())
+            {
+                app.UseExceptionHandler("/Home/Error");
+                app.UseHsts();
+            }
+
+            app.UseStatusCodePagesWithReExecute("/Home/StatusCode", "?code={0}");
+            app.UseHttpsRedirection();
+            app.UseRouting();
+            app.UseAuthorization();
+            app.MapStaticAssets();
+
+            app.MapControllerRoute(
+                name: "default",
+                pattern: "{controller=Account}/{action=Login}/{id?}")
+                .WithStaticAssets();
+        }
+
+        private static async Task InitializeDatabase(WebApplication app)
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+
+            try
+            {
+                await DatabaseSeeder.SeedRolesAndAdminAsync(services);
+            }
+            catch (Exception ex)
+            {
+                var logger = services.GetRequiredService<ILogger<Program>>();
+                logger.LogError(ex, "An error occurred while seeding the database.");
+            }
+        }
     }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
-    }
 }
-
-
-app.Run();

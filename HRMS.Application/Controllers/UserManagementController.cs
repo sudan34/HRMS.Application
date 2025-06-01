@@ -61,12 +61,6 @@ namespace HRMS.Application.Controllers
                 UserName = user.UserName,
                 EmployeeName = user.Employee?.FullName,
                 Roles = new List<RoleViewModel>()
-                //Roles = _roleManager.Roles.Select(r => new RoleViewModel
-                //{
-                //    RoleId = r.Id,
-                //    RoleName = r.Name,
-                //    IsSelected = _userManager.IsInRoleAsync(user, r.Name).Result
-                //}).ToList()
             };
             var roles = _roleManager.Roles.ToList();
 
@@ -113,5 +107,5 @@ namespace HRMS.Application.Controllers
             return RedirectToAction(nameof(Index));
         }
     }
-      
+
 }

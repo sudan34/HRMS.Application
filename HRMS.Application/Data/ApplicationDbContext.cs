@@ -25,18 +25,7 @@ namespace HRMS.Application.Data
                 .HasForeignKey(a => a.EmployeeId)
                 .HasPrincipalKey(e => e.EmployeeId)
                 .OnDelete(DeleteBehavior.Restrict);
-
-            //modelBuilder.Entity<User>()
-            //.HasOne(u => u.Employee)
-            //.WithMany()
-            //.HasForeignKey(u => u.EmployeeId);
-
-            //// Seed initial data
-            //modelBuilder.Entity<Department>().HasData(
-            //    new Department { Id = 1, Name = "Administration", Description = "Administration Department" },
-            //    new Department { Id = 2, Name = "HR", Description = "Human Resources Department" },
-            //    new Department { Id = 3, Name = "IT", Description = "Information Technology Department" }
-            //);
+                      
         }
     }
 }
