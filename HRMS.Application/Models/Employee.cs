@@ -34,7 +34,6 @@ namespace HRMS.Application.Models
         public DateTime? ResignDate { get; set; }
         public int DepartmentId { get; set; } = 1;
         public Department? Department { get; set; }
-
         public ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
         public bool IsActive { get; set; } = true;
     }

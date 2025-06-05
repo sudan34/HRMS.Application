@@ -1,5 +1,6 @@
 ﻿using HRMS.Application.Data;
 using HRMS.Application.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Runtime.InteropServices;
 using zkemkeeper;
@@ -130,11 +131,14 @@ namespace HRMS.Application.Services
             var enrollNumbers = records.Select(r => r.enrollNumber).Distinct().ToList();
             var employees = await _context.Employees
                 .Include(e => e.Department)
+                .ThenInclude(d => d.DepartmentWeekend)
                 .Where(e => enrollNumbers.Contains(e.EmployeeId))
                 .ToDictionaryAsync(e => e.EmployeeId);  // Key by EmployeeId now
 
             var attendancesToAdd = new List<Attendance>();
             var attendancesToUpdate = new List<Attendance>();
+
+           // var currentUser = await _userManager.GetUserAsync(_httpContextAccessor.HttpContext.User);
 
             foreach (var record in records)
             {
@@ -142,6 +146,13 @@ namespace HRMS.Application.Services
                 {
                     _logger.LogWarning($"Employee not found with Enrollment ID: {record.enrollNumber}");
                     continue;
+                }
+
+                var isWeekend = IsWeekendForDepartment(employee.Department, record.recordTime);
+                if (isWeekend)
+                {
+                    // Skip processing or mark as weekend attendance
+                    continue; // or create a weekend attendance record
                 }
 
                 if (record.inOutMode == 0) // Check-in
@@ -157,7 +168,9 @@ namespace HRMS.Application.Services
                         {
                             EmployeeId = employee.EmployeeId,  // Use EmployeeId here
                             CheckIn = record.recordTime,
-                            Status = DetermineAttendanceStatus(employee.DepartmentId, record.recordTime)
+                            Status = DetermineAttendanceStatus(employee.DepartmentId, record.recordTime),
+                            CreatedBy = "System",
+                            CreatedOn = DateTime.Now
                         });
                     }
                 }
@@ -173,6 +186,8 @@ namespace HRMS.Application.Services
                     if (attendance != null && attendance.CheckOut == null)
                     {
                         attendance.CheckOut = record.recordTime;
+                        attendance.UpdatedBy = "System";
+                        attendance.UpdatedOn = DateTime.Now;
                         attendancesToUpdate.Add(attendance);
                     }
                 }
@@ -283,5 +298,19 @@ namespace HRMS.Application.Services
             GC.SuppressFinalize(this);
         }
 
+        private bool IsWeekendForDepartment(Department department, DateTime date)
+        {
+            if (department?.DepartmentWeekend == null)
+            {
+                // Default for departments without configuration: Saturday only
+                return date.DayOfWeek == DayOfWeek.Saturday;
+            }
+            var day = date.DayOfWeek;
+            var weekend = department.DepartmentWeekend;
+
+            // Check both days if WeekendDay2 is set
+            return day == weekend.WeekendDay1 ||
+                  (weekend.WeekendDay2.HasValue && day == weekend.WeekendDay2.Value);
+        }
     }
 }

@@ -158,12 +158,17 @@ namespace HRMS.Application
 
             try
             {
-                await DatabaseSeeder.SeedRolesAndAdminAsync(services);
+                // Apply pending migrations first
+                var dbContext = services.GetRequiredService<ApplicationDbContext>();
+                await dbContext.Database.MigrateAsync();
+
+                // Seed all data
+                await DatabaseSeeder.SeedInitialDataAsync(services);
             }
             catch (Exception ex)
             {
                 var logger = services.GetRequiredService<ILogger<Program>>();
-                logger.LogError(ex, "An error occurred while seeding the database.");
+                logger.LogError(ex, "An error occurred while initializing the database.");
             }
         }
     }
