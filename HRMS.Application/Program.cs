@@ -129,6 +129,8 @@ namespace HRMS.Application
         private static void ConfigureApplicationServices(IServiceCollection services)
         {
             services.AddScoped<IZkDeviceService, ZkDeviceService>();
+            services.AddScoped<IAttendanceStatusService, AttendanceStatusService>();
+            services.AddScoped<IHolidayService, HolidayService>();
         }
 
         private static void ConfigureMiddleware(WebApplication app, IWebHostEnvironment env)

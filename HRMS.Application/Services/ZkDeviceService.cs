@@ -2,8 +2,10 @@
 using HRMS.Application.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using zkemkeeper;
+using static HRMS.Application.Services.AttendanceStatusService;
 
 namespace HRMS.Application.Services
 {
@@ -12,27 +14,32 @@ namespace HRMS.Application.Services
         private readonly ApplicationDbContext _context;
         private readonly ILogger<ZkDeviceService> _logger;
         private readonly IConfiguration _config;
+        private readonly IAttendanceStatusService _attendanceStatusService;
         private CZKEMClass _zkDevice;
         private bool _isConnected = false;
-        private readonly Dictionary<int, TimeSpan> _departmentLateTimes;
+        //private readonly Dictionary<int, TimeSpan> _departmentLateTimes;
         public ZkDeviceService(ApplicationDbContext context,
                              ILogger<ZkDeviceService> logger,
-                             IConfiguration config)
+                             IConfiguration config,
+                              IAttendanceStatusService attendanceStatusService)
         {
             _context = context;
             _logger = logger;
             _config = config;
+            _attendanceStatusService = attendanceStatusService;
             _zkDevice = new CZKEMClass();
-            _departmentLateTimes = LoadDepartmentLateTimes();
+            //  _departmentLateTimes = LoadDepartmentLateTimes();
         }
 
         private Dictionary<int, TimeSpan> LoadDepartmentLateTimes()
         {
             var lateTimes = new Dictionary<int, TimeSpan>();
+
             var defaultTime = TimeSpan.Parse(_config["DepartmentSettings:LateTimes:Default"]);
 
-            // Load all configured department late times
             var section = _config.GetSection("DepartmentSettings:LateTimes");
+
+            // Load all configured department late times
             foreach (var dept in section.GetChildren())
             {
                 if (dept.Key != "Default" &&
@@ -128,152 +135,115 @@ namespace HRMS.Application.Services
 
         private async Task ProcessAttendanceRecords(List<(string enrollNumber, DateTime recordTime, int inOutMode)> records)
         {
-            // Order records by time first
-            var orderedRecords = records.OrderBy(r => r.recordTime).ToList();
+            // Filter out future dates
+            var currentDate = DateTime.Now.Date;
+            var validRecords = records.Where(r => r.recordTime.Date <= currentDate)
+                                     .OrderBy(r => r.recordTime)
+                                     .ToList();
 
-            var enrollNumbers = orderedRecords.Select(r => r.enrollNumber).Distinct().ToList();
+            var enrollNumbers = validRecords.Select(r => r.enrollNumber).Distinct().ToList();
             var employees = await _context.Employees
-                .Include(e => e.Department)
-                .ThenInclude(d => d.DepartmentWeekend)
                 .Where(e => enrollNumbers.Contains(e.EmployeeId))
                 .AsNoTracking()
                 .ToDictionaryAsync(e => e.EmployeeId);
 
-            // First process all check-ins
-            var checkInRecords = orderedRecords.Where(r => r.inOutMode == 0).ToList();
-            var attendancesToAdd = new List<Attendance>();
-
-            foreach (var record in checkInRecords)
+            // Process all records
+            foreach (var record in validRecords)
             {
                 if (!employees.TryGetValue(record.enrollNumber, out var employee))
                 {
-                    _logger.LogWarning($"Employee not found with Enrollment ID: {record.enrollNumber}");
+                    _logger.LogWarning($"Employee not found: {record.enrollNumber}");
                     continue;
                 }
 
-                var isWeekend = IsWeekendForDepartment(employee.Department, record.recordTime);
-                if (isWeekend)
+                if (record.inOutMode == 0) // Check-in
                 {
-                    _logger.LogDebug($"Skipping weekend check-in for {employee.EmployeeId} on {record.recordTime}");
-                    continue;
+                    await ProcessCheckIn(employee, record.recordTime);
                 }
-
-                var existing = await _context.Attendances
-                    .FirstOrDefaultAsync(a =>
-                        a.EmployeeId == employee.EmployeeId &&
-                        a.CheckIn.Date == record.recordTime.Date);
-
-                if (existing == null)
+                else // Check-out
                 {
-                    attendancesToAdd.Add(new Attendance
-                    {
-                        EmployeeId = employee.EmployeeId,
-                        CheckIn = record.recordTime,
-                        Status = DetermineAttendanceStatus(employee.DepartmentId, record.recordTime),
-                        CreatedBy = "System",
-                        CreatedOn = DateTime.Now
-                    });
-                    _logger.LogDebug($"Adding check-in for {employee.EmployeeId} at {record.recordTime}");
+                    await ProcessCheckOut(employee, record.recordTime);
                 }
             }
+        }
 
-            // Save all check-ins first
-            if (attendancesToAdd.Any())
+        private async Task ProcessCheckIn(Employee employee, DateTime checkInTime)
+        {
+            var existing = await _context.Attendances
+                .FirstOrDefaultAsync(a =>
+                    a.EmployeeId == employee.EmployeeId &&
+                    a.CheckIn.Date == checkInTime.Date);
+
+            if (existing == null)
             {
-                await _context.Attendances.AddRangeAsync(attendancesToAdd);
+                var status = await _attendanceStatusService.DetermineStatusAsync(employee, checkInTime);
+
+                _context.Attendances.Add(new Attendance
+                {
+                    EmployeeId = employee.EmployeeId,
+                    CheckIn = checkInTime,
+                    Status = status,
+                    CreatedBy = "System",
+                    CreatedOn = checkInTime
+                });
                 await _context.SaveChangesAsync();
             }
+        }
 
-            // Now process check-outs
-            var checkOutRecords = orderedRecords.Where(r => r.inOutMode != 0).ToList();
-            var attendancesToUpdate = new List<Attendance>();
+        private async Task ProcessCheckOut(Employee employee, DateTime checkOutTime)
+        {
+            // Find the most recent check-in without a check-out on the same day
+            var attendance = await _context.Attendances
+                .Where(a => a.EmployeeId == employee.EmployeeId &&
+                           a.CheckIn.Date == checkOutTime.Date &&
+                           a.CheckOut == null)
+                .OrderByDescending(a => a.CheckIn)
+                .FirstOrDefaultAsync();
 
-            foreach (var record in checkOutRecords)
+            if (attendance != null)
             {
-                if (!employees.TryGetValue(record.enrollNumber, out var employee))
+                // Validate check-out is after check-in
+                if (checkOutTime > attendance.CheckIn)
                 {
-                    _logger.LogWarning($"Employee not found with Enrollment ID: {record.enrollNumber}");
-                    continue;
-                }
-
-                var isWeekend = IsWeekendForDepartment(employee.Department, record.recordTime);
-                if (isWeekend)
-                {
-                    _logger.LogDebug($"Skipping weekend check-out for {employee.EmployeeId} on {record.recordTime}");
-                    continue;
-                }
-
-                // Find matching check-in using exact date comparison
-                var attendance = await _context.Attendances
-                    .Where(a =>
-                        a.EmployeeId == employee.EmployeeId &&
-                        a.CheckIn.Date == record.recordTime.Date && // Same day
-                        a.CheckOut == null) // Only records without check-out
-                    .OrderByDescending(a => a.CheckIn)
-                    .FirstOrDefaultAsync();
-
-                if (attendance != null)
-                {
-                    if (record.recordTime > attendance.CheckIn)
-                    {
-                        attendance.CheckOut = record.recordTime;
-                        attendance.UpdatedBy = "System";
-                        attendance.UpdatedOn = DateTime.Now;
-                        attendancesToUpdate.Add(attendance);
-                        _logger.LogDebug($"Updating check-out for {employee.EmployeeId} at {record.recordTime}");
-                    }
-                    else
-                    {
-                        _logger.LogWarning($"Invalid check-out time {record.recordTime} before check-in {attendance.CheckIn} for employee {employee.EmployeeId}");
-                    }
+                    attendance.CheckOut = checkOutTime;
+                    attendance.Status = await _attendanceStatusService.FinalizeStatusAsync(attendance);
+                    attendance.UpdatedBy = "System";
+                    attendance.UpdatedOn = checkOutTime;
+                    await _context.SaveChangesAsync();
                 }
                 else
                 {
-                    _logger.LogWarning($"No matching check-in found for check-out at {record.recordTime} for employee {employee.EmployeeId}");
-
-                    // Optional: Create a new attendance record if check-in is missing
-                    attendancesToAdd.Add(new Attendance
-                    {
-                        EmployeeId = employee.EmployeeId,
-                        CheckIn = record.recordTime.Date, // Use start of day as check-in
-                        CheckOut = record.recordTime,
-                        Status = AttendanceStatus.Present,
-                        CreatedBy = "System",
-                        CreatedOn = DateTime.Now
-                    });
-                    _logger.LogInformation($"Created new attendance record with check-out only for {employee.EmployeeId}");
+                    _logger.LogWarning($"Invalid check-out time {checkOutTime} before check-in {attendance.CheckIn} for employee {employee.EmployeeId}");
                 }
             }
-
-            // Save all changes
-            if (attendancesToAdd.Any())
+            else
             {
-                await _context.Attendances.AddRangeAsync(attendancesToAdd);
-            }
+                // Handle check -out without check-in
+                var status = await _attendanceStatusService.DetermineStatusAsync(employee, checkOutTime.AddHours(-1));
 
-            if (attendancesToUpdate.Any())
-            {
-                _context.Attendances.UpdateRange(attendancesToUpdate);
-            }
-
-            if (attendancesToAdd.Any() || attendancesToUpdate.Any())
-            {
+                _context.Attendances.Add(new Attendance
+                {
+                    EmployeeId = employee.EmployeeId,
+                    CheckIn = checkOutTime.AddHours(-1), // Default 1 hour before check-out
+                    CheckOut = checkOutTime,
+                    Status = status == AttendanceStatus.OnLeave ? status : AttendanceStatus.Present,
+                    CreatedBy = "System",
+                    CreatedOn = checkOutTime
+                });
                 await _context.SaveChangesAsync();
+                _logger.LogInformation($"Created new attendance with check-out only for {employee.EmployeeId} at {checkOutTime}");
             }
-
-            _logger.LogInformation($"Added {attendancesToAdd.Count} new attendances");
-            _logger.LogInformation($"Updated {attendancesToUpdate.Count} check-outs");
         }
-        private AttendanceStatus DetermineAttendanceStatus(int departmentId, DateTime checkInTime)
-        {
-            var lateTime = _departmentLateTimes.TryGetValue(departmentId, out var deptTime)
-                 ? deptTime
-                 : TimeSpan.Parse(_config["DepartmentSettings:LateTimes:Default"] ?? "09:30:00");
+        //private AttendanceStatus DetermineAttendanceStatus(int departmentId, DateTime checkInTime)
+        //{
+        //    var lateTime = _departmentLateTimes.TryGetValue(departmentId, out var deptTime)
+        //         ? deptTime
+        //         : TimeSpan.Parse(_config["DepartmentSettings:LateTimes:Default"] ?? "09:30:00");
 
-            return checkInTime.TimeOfDay > lateTime
-                ? AttendanceStatus.Late
-                : AttendanceStatus.Present;
-        }
+        //    return checkInTime.TimeOfDay > lateTime
+        //        ? AttendanceStatus.Late
+        //        : AttendanceStatus.Present;
+        //}
         public async Task<List<AttendanceRecord>> GetAttendanceDataAsync(DateTime fromDate, DateTime toDate)
         {
             var records = new List<AttendanceRecord>();
@@ -335,7 +305,6 @@ namespace HRMS.Application.Services
                 Disconnect();
             }
         }
-
 
         public void Disconnect()
         {

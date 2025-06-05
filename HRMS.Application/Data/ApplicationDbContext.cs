@@ -14,6 +14,8 @@ namespace HRMS.Application.Data
         public DbSet<Employee> Employees { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<Department> Departments { get; set; }
+        public DbSet<Leave> Leaves { get; set; }
+        public DbSet<Holiday> Holidays { get; set; }
         public DbSet<DepartmentWeekend> DepartmentWeekends { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

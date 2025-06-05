@@ -31,6 +31,8 @@ namespace HRMS.Application.Models
         Late,
         OnLeave,
         Weekend,
-        Holiday
+        Holiday,
+        HalfDay,
+        EarlyDeparture
     }
 }
