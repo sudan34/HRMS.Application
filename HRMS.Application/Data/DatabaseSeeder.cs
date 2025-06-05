@@ -13,8 +13,8 @@ namespace HRMS.Application.Data
 
             // Seed in proper order
             await SeedRolesAsync(services.GetRequiredService<RoleManager<IdentityRole>>());
-            await SeedAdminUserAsync(services.GetRequiredService<UserManager<ApplicationUser>>());
             await SeedDepartmentWeekendsAsync(services.GetRequiredService<ApplicationDbContext>());
+            await SeedAdminUserAsync(services.GetRequiredService<UserManager<ApplicationUser>>());
         }
 
         private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
@@ -29,41 +29,6 @@ namespace HRMS.Application.Data
                 }
             }
         }
-
-        private static async Task SeedAdminUserAsync(UserManager<ApplicationUser> userManager)
-        {
-            const string adminEmail = "admin@hrms.com";
-
-            if (await userManager.FindByEmailAsync(adminEmail) != null)
-                return;
-
-            var employee = new Employee
-            {
-                EmployeeId = "001",
-                FirstName = "System",
-                LastName = "Admin",
-                Email = adminEmail,
-                JoinDate = DateTime.Now,
-                DepartmentId = 1, // Ensure this department exists or handle creation
-                IsActive = true
-            };
-
-            var admin = new ApplicationUser
-            {
-                UserName = adminEmail,
-                Email = adminEmail,
-                EmailConfirmed = true,
-                Employee = employee,
-                CustomRoleType = "SuperAdmin"
-            };
-
-            var result = await userManager.CreateAsync(admin, "Admin@123");
-            if (result.Succeeded)
-            {
-                await userManager.AddToRoleAsync(admin, "SuperAdmin");
-            }
-        }
-
         private static async Task SeedDepartmentWeekendsAsync(ApplicationDbContext context)
         {
             if (await context.DepartmentWeekends.AnyAsync())
@@ -73,9 +38,9 @@ namespace HRMS.Application.Data
             if (!await context.Departments.AnyAsync())
             {
                 // Optionally seed default departments if none exist
-                context.Departments.Add(new Department { Name = "Administration" });
-                context.Departments.Add(new Department { Name = "Development Team A" });
-                context.Departments.Add(new Department { Name = "Development Team B" });
+                context.Departments.Add(new Department { Name = "Administration", Description = "Administration" });
+                context.Departments.Add(new Department { Name = "Development Team A",Description = "Development A" });
+                context.Departments.Add(new Department { Name = "Development Team B" , Description = "Development B" });
                 await context.SaveChangesAsync();
             }
 
@@ -109,6 +74,39 @@ namespace HRMS.Application.Data
 
             await context.DepartmentWeekends.AddRangeAsync(weekends);
             await context.SaveChangesAsync();
+        }
+        private static async Task SeedAdminUserAsync(UserManager<ApplicationUser> userManager)
+        {
+            const string adminEmail = "admin@hrms.com";
+
+            if (await userManager.FindByEmailAsync(adminEmail) != null)
+                return;
+
+            var employee = new Employee
+            {
+                EmployeeId = "001",
+                FirstName = "System",
+                LastName = "Admin",
+                Email = adminEmail,
+                JoinDate = DateTime.Now,
+                DepartmentId = 1, 
+                IsActive = true
+            };
+
+            var admin = new ApplicationUser
+            {
+                UserName = adminEmail,
+                Email = adminEmail,
+                EmailConfirmed = true,
+                Employee = employee,
+                CustomRoleType = "SuperAdmin"
+            };
+
+            var result = await userManager.CreateAsync(admin, "Admin@123");
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(admin, "SuperAdmin");
+            }
         }
     }
 }

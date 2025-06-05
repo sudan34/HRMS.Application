@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS.Application.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250605023054_Init_New")]
-    partial class Init_New
+    [Migration("20250605044152_Update2")]
+    partial class Update2
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -128,7 +128,6 @@ namespace HRMS.Application.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Remarks")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Status")
@@ -137,7 +136,6 @@ namespace HRMS.Application.Migrations
                         .HasDefaultValue(0);
 
                     b.Property<string>("UpdatedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedOn")

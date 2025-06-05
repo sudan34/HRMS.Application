@@ -128,6 +128,9 @@ namespace HRMS.Application.Services
 
         private async Task ProcessAttendanceRecords(List<(string enrollNumber, DateTime recordTime, int inOutMode)> records)
         {
+            // Order records by time first
+            var orderedRecords = records.OrderBy(r => r.recordTime).ToList();
+
             var enrollNumbers = records.Select(r => r.enrollNumber).Distinct().ToList();
             var employees = await _context.Employees
                 .Include(e => e.Department)
@@ -138,8 +141,6 @@ namespace HRMS.Application.Services
             var attendancesToAdd = new List<Attendance>();
             var attendancesToUpdate = new List<Attendance>();
 
-           // var currentUser = await _userManager.GetUserAsync(_httpContextAccessor.HttpContext.User);
-
             foreach (var record in records)
             {
                 if (!employees.TryGetValue(record.enrollNumber, out var employee))
@@ -149,11 +150,7 @@ namespace HRMS.Application.Services
                 }
 
                 var isWeekend = IsWeekendForDepartment(employee.Department, record.recordTime);
-                if (isWeekend)
-                {
-                    // Skip processing or mark as weekend attendance
-                    continue; // or create a weekend attendance record
-                }
+                if (isWeekend) continue;
 
                 if (record.inOutMode == 0) // Check-in
                 {
@@ -161,6 +158,8 @@ namespace HRMS.Application.Services
                         .FirstOrDefaultAsync(a =>
                             a.EmployeeId == employee.EmployeeId &&  // Use EmployeeId here
                             a.CheckIn.Date == record.recordTime.Date);
+
+                    _logger.LogDebug($"Processing record - Employee: {employee?.EmployeeId}, Time: {record.recordTime}, Mode: {record.inOutMode}");
 
                     if (existing == null)
                     {
@@ -179,19 +178,34 @@ namespace HRMS.Application.Services
                     var attendance = await _context.Attendances
                         .Where(a =>
                             a.EmployeeId == employee.EmployeeId &&  // Use EmployeeId here
-                            a.CheckIn.Date == record.recordTime.Date)
+                            a.CheckIn.Date == record.recordTime.Date &&
+                             a.CheckOut == null)
                         .OrderByDescending(a => a.CheckIn)
                         .FirstOrDefaultAsync();
 
-                    if (attendance != null && attendance.CheckOut == null)
+                    if (attendance != null)
                     {
-                        attendance.CheckOut = record.recordTime;
-                        attendance.UpdatedBy = "System";
-                        attendance.UpdatedOn = DateTime.Now;
-                        attendancesToUpdate.Add(attendance);
+                        // Ensure check-out is after check-in
+                        if (record.recordTime > attendance.CheckIn)
+                        {
+                            attendance.CheckOut = record.recordTime;
+                            attendance.UpdatedBy = "System";
+                            attendance.UpdatedOn = DateTime.Now;
+                            attendancesToUpdate.Add(attendance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"Invalid check-out time {record.recordTime} before check-in {attendance.CheckIn} for employee {employee.EmployeeId}");
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"No matching check-in found for check-out at {record.recordTime} for employee {employee.EmployeeId}");
                     }
                 }
             }
+            _logger.LogInformation($"Added {attendancesToAdd.Count} new attendances");
+            _logger.LogInformation($"Updated {attendancesToUpdate.Count} check-outs");
 
             if (attendancesToAdd.Any())
             {
