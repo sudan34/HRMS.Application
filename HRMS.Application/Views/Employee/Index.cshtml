@@ -20,6 +20,7 @@
                     <th>Name</th>
                     <th>Email</th>
                     <th>Department</th>
+                    <th>Designation</th>
                     <th>Join Date</th>
                     <th>Status</th>
                     <th class="text-center">Actions</th>
@@ -33,6 +34,7 @@
                         <td>@item.FullName</td>
                         <td>@item.Email</td>
                         <td>@item.Department?.Name</td>
+                        <td>@item.Designation</td>
                         <td>@item.JoinDate.ToString("yyyy-MM-dd")</td>
                         <td>
                             <span class="badge @(item.IsActive ? "bg-success" : "bg-secondary")">

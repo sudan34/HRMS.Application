@@ -46,6 +46,7 @@
                 <input asp-for="EmployeeId" class="form-control" />
                 <span asp-validation-for="EmployeeId" class="text-danger"></span>
             </div>
+            
             <div class="col-md-6 mb-3">
                 <label asp-for="DepartmentId" class="form-label">Department</label>
                 <select asp-for="DepartmentId" asp-items="@(new SelectList(ViewBag.Departments, "Id", "Name"))" class="form-select">
@@ -60,6 +61,11 @@
                 <label asp-for="JoinDate" class="form-label">Join Date</label>
                 <input asp-for="JoinDate" type="date" class="form-control" />
                 <span asp-validation-for="JoinDate" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="Designation" class="form-label">Designation</label>
+                <input asp-for="Designation" class="form-control" />
+                <span asp-validation-for="Designation" class="text-danger"></span>
             </div>
         </div>
 

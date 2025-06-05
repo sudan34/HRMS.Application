@@ -29,6 +29,7 @@ namespace HRMS.Application.ViewComponents // Changed from "ViewComponent"
                     e.FirstName,
                     e.LastName,
                     e.Email,
+                    e.Designation,
                     Department = e.Department.Name,
                     Attendances = e.Attendances.Where(a =>
                         a.CheckIn.Date >= fromDate.Date &&

@@ -142,6 +142,7 @@ namespace HRMS.Application.Controllers
                     existingEmployee.FirstName = employee.FirstName;
                     existingEmployee.LastName = employee.LastName;
                     existingEmployee.Email = employee.Email;
+                    existingEmployee.Designation = employee.Designation;
                     existingEmployee.Phone = employee.Phone;
                     existingEmployee.JoinDate = employee.JoinDate;
                     existingEmployee.DepartmentId = employee.DepartmentId;

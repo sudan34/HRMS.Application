@@ -25,6 +25,7 @@ namespace HRMS.Application.Models
 
         [MaxLength(100)]
         public string Email { get; set; }
+        public string? Designation { get; set; }
 
         [MaxLength(20)]
         public string Phone { get; set; } = string.Empty;

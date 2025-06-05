@@ -3,6 +3,8 @@ using HRMS.Application.Models;
 using HRMS.Application.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using Serilog.Events;
 
 namespace HRMS.Application
 {
@@ -10,15 +12,46 @@ namespace HRMS.Application
     {
         public static async Task Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
+            // Configure Serilog early in the pipeline
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+                .MinimumLevel.Override("System", LogEventLevel.Warning)
+                .Enrich.FromLogContext()
+                .WriteTo.Console()
+                .WriteTo.File(
+                    path: "Logs/log-.txt",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 7,
+                    shared: true)
+                .CreateLogger();
 
-            ConfigureServices(builder.Services, builder.Configuration);
-            var app = builder.Build();
+            try
+            {
+                Log.Information("Starting web application");
 
-            ConfigureMiddleware(app, builder.Environment);
-            await InitializeDatabase(app);
+                var builder = WebApplication.CreateBuilder(args);
+                // Add Serilog to the DI container
+                builder.Host.UseSerilog();
 
-            app.Run();
+                ConfigureServices(builder.Services, builder.Configuration);
+                var app = builder.Build();
+
+                ConfigureMiddleware(app, builder.Environment);
+                await InitializeDatabase(app);
+
+                app.Run();
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Application terminated unexpectedly");
+            }
+            finally
+            {
+                Log.CloseAndFlush();
+            }
+
         }
         private static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
         {
