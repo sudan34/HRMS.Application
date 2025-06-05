@@ -136,6 +136,7 @@ namespace HRMS.Application.Services
                 .Include(e => e.Department)
                 .ThenInclude(d => d.DepartmentWeekend)
                 .Where(e => enrollNumbers.Contains(e.EmployeeId))
+                .AsNoTracking()
                 .ToDictionaryAsync(e => e.EmployeeId);  // Key by EmployeeId now
 
             var attendancesToAdd = new List<Attendance>();
@@ -143,6 +144,8 @@ namespace HRMS.Application.Services
 
             foreach (var record in records)
             {
+                _logger.LogDebug($"Processing record - Employee: {record.enrollNumber}, Time: {record.recordTime}, Mode: {record.inOutMode}");
+
                 if (!employees.TryGetValue(record.enrollNumber, out var employee))
                 {
                     _logger.LogWarning($"Employee not found with Enrollment ID: {record.enrollNumber}");
@@ -159,7 +162,6 @@ namespace HRMS.Application.Services
                             a.EmployeeId == employee.EmployeeId &&  // Use EmployeeId here
                             a.CheckIn.Date == record.recordTime.Date);
 
-                    _logger.LogDebug($"Processing record - Employee: {employee?.EmployeeId}, Time: {record.recordTime}, Mode: {record.inOutMode}");
 
                     if (existing == null)
                     {
@@ -314,17 +316,35 @@ namespace HRMS.Application.Services
 
         private bool IsWeekendForDepartment(Department department, DateTime date)
         {
-            if (department?.DepartmentWeekend == null)
+            try
             {
-                // Default for departments without configuration: Saturday only
-                return date.DayOfWeek == DayOfWeek.Saturday;
-            }
-            var day = date.DayOfWeek;
-            var weekend = department.DepartmentWeekend;
+                if (department?.DepartmentWeekend == null)
+                {
+                    // Default for departments without configuration: Saturday only
+                    bool isDefaultWeekend = date.DayOfWeek == DayOfWeek.Saturday;
+                    _logger.LogTrace($"No weekend config for {department?.Name}, using default: {isDefaultWeekend}");
+                    return isDefaultWeekend;
+                }
+                //    {
+                //    // Default for departments without configuration: Saturday only
+                //    return date.DayOfWeek == DayOfWeek.Saturday;
+                //}
+                var day = date.DayOfWeek;
+                var weekend = department.DepartmentWeekend;
 
-            // Check both days if WeekendDay2 is set
-            return day == weekend.WeekendDay1 ||
-                  (weekend.WeekendDay2.HasValue && day == weekend.WeekendDay2.Value);
+                bool isWeekend = day == weekend.WeekendDay1 ||
+                            (weekend.WeekendDay2.HasValue && day == weekend.WeekendDay2.Value);
+
+                _logger.LogTrace($"Weekend check for {department.Name}: {date:yyyy-MM-dd} (Day {day}) " +
+                                $"vs config: {weekend.WeekendDay1}/{weekend.WeekendDay2} = {isWeekend}");
+
+                return isWeekend;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error checking weekend for department {department?.Id}");
+                return false; // Don't skip records if there's an error
+            }
         }
     }
 }
