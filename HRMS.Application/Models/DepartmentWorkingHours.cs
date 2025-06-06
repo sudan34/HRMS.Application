@@ -8,7 +8,7 @@ namespace HRMS.Application.Models
         public int DepartmentId { get; set; }
 
         [ForeignKey("DepartmentId")]
-        public Department Department { get; set; }
+        public Department? Department { get; set; }
 
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }

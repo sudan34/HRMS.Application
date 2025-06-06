@@ -1,0 +1,66 @@
+﻿@model HRMS.Application.Models.Leave
+
+@{
+    ViewData["Title"] = "Edit Leave";
+    var employees = ViewBag.Employees as List<HRMS.Application.Models.Employee>;
+}
+
+<div class="container mt-4">
+    <h2>Edit Leave</h2>
+    <hr />
+    <form asp-action="Edit" method="post">
+        <input type="hidden" asp-for="Id" />
+
+        <div class="mb-3">
+            <label asp-for="EmployeeId" class="form-label">Employee</label>
+            <select asp-for="EmployeeId" class="form-select" asp-items="@(new SelectList(employees, "Id", "FullName", Model.EmployeeId))">
+                <option value="">-- Select Employee --</option>
+            </select>
+            <span asp-validation-for="EmployeeId" class="text-danger"></span>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col">
+                <label asp-for="StartDate" class="form-label">Start Date</label>
+                <input asp-for="StartDate" class="form-control" type="date" />
+                <span asp-validation-for="StartDate" class="text-danger"></span>
+            </div>
+            <div class="col">
+                <label asp-for="EndDate" class="form-label">End Date</label>
+                <input asp-for="EndDate" class="form-control" type="date" />
+                <span asp-validation-for="EndDate" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Type" class="form-label">Leave Type</label>
+            <select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<HRMS.Application.Models.LeaveType>()">
+                <option value="">-- Select Type --</option>
+            </select>
+            <span asp-validation-for="Type" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Status" class="form-label">Status</label>
+            <select asp-for="Status" class="form-select" asp-items="Html.GetEnumSelectList<HRMS.Application.Models.LeaveStatus>()">
+                <option value="">-- Select Status --</option>
+            </select>
+            <span asp-validation-for="Status" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Reason" class="form-label">Reason</label>
+            <textarea asp-for="Reason" class="form-control" rows="3"></textarea>
+            <span asp-validation-for="Reason" class="text-danger"></span>
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            <button type="submit" class="btn btn-primary">Update</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

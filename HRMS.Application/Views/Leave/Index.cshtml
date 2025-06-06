@@ -1,0 +1,61 @@
+﻿@model IEnumerable<HRMS.Application.Models.Leave>
+
+@{
+    ViewData["Title"] = "Leave Management";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Leave Management</h2>
+        <a asp-action="Create" class="btn btn-primary">Create New</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Employee</th>
+                    <th>Type</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.Employee.FullName</td>
+                        <td>@item.Type</td>
+                        <td>@item.StartDate.ToString("dd-MMM-yyyy")</td>
+                        <td>@item.EndDate.ToString("dd-MMM-yyyy")</td>
+                        <td>
+                            <span class="badge @GetStatusBadgeClass(item.Status)">
+                                @item.Status
+                            </span>
+                        </td>
+                        <td>
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">Edit</a>
+                            <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@functions {
+    string GetStatusBadgeClass(LeaveStatus status)
+    {
+        return status switch
+        {
+            LeaveStatus.Approved => "bg-success",
+            LeaveStatus.Pending => "bg-warning text-dark",
+            LeaveStatus.Rejected => "bg-danger",
+            LeaveStatus.Cancelled => "bg-secondary",
+            _ => "bg-info"
+        };
+    }
+}

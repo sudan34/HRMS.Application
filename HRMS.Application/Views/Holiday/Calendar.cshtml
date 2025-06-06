@@ -1,0 +1,250 @@
+﻿@using HRMS.Application.ViewModel
+@model HolidayCalendarViewModel
+
+@{
+    ViewData["Title"] = $"Holiday Calendar - {Model.MonthName} {Model.BSYear}";
+}
+
+<div class="container mt-4">
+    <!-- Navigation and Title -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>@ViewData["Title"]</h2>
+        <div>
+            <a asp-action="Calendar" 
+               asp-route-year="@Model.PreviousMonth.Year" 
+               asp-route-month="@Model.PreviousMonth.Month"
+               class="btn btn-outline-primary">
+                <i class="fas fa-chevron-left"></i> Previous
+            </a>
+            <a asp-action="Calendar" 
+               asp-route-year="@Model.NextMonth.Year" 
+               asp-route-month="@Model.NextMonth.Month"
+               class="btn btn-outline-primary">
+                Next <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Status Messages -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+    }
+
+    <!-- Calendar Display -->
+    <div class="card">
+        <div class="card-body">
+            <!-- Weekday Headers -->
+            <div class="row text-center fw-bold mb-2">
+                @* @foreach (var day in _nepaliCalendar.GetWeekDays())
+                {
+                    <div class="col p-2">@day.Value</div>
+                } *@
+                @foreach (var day in Model.WeekDays)
+                {
+                    <div class="col p-2">@day.Value</div>
+                }
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="calendar-grid">
+                @{
+                    int dayCounter = 0;
+                }
+                @for (int row = 0; row < 6; row++)
+                {
+                    <div class="row calendar-row">
+                        @for (int col = 0; col < 7; col++)
+                        {
+                            var day = dayCounter < Model.CalendarDays.Count ? Model.CalendarDays[dayCounter] : null;
+                            
+                            <div class="col p-2 calendar-day-cell @(day == null || day.IsEmpty ? "empty-day" : "")">
+                                @if (day != null && !day.IsEmpty)
+                                {
+                                    <div class="day-number @(day.IsToday ? "today" : "")">
+                                        @day.Day
+                                    </div>
+                                    
+                                    var dayHolidays = Model.Holidays.Where(h => h.BSDay == day.Day).ToList();
+                                    foreach (var holiday in dayHolidays)
+                                    {
+                                        <div class="holiday-badge" 
+                                             data-holiday-id="@holiday.Id"
+                                             data-bs-toggle="tooltip" 
+                                             title="@holiday.Name - @holiday.Description">
+                                            @holiday.Name
+                                            <form class="delete-holiday-form" 
+                                                  asp-action="Delete" 
+                                                  asp-route-id="@holiday.Id"
+                                                  asp-route-returnYear="@Model.BSYear"
+                                                  asp-route-returnMonth="@Model.BSMonth">
+                                                <button type="submit" class="btn btn-sm btn-link text-danger">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    }
+                                    
+                                    if (dayHolidays.Count == 0)
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary add-holiday-btn"
+                                                data-bs-year="@Model.BSYear"
+                                                data-bs-month="@Model.BSMonth"
+                                                data-bs-day="@day.Day">
+                                            <i class="fas fa-plus"></i> Add Holiday
+                                        </button>
+                                    }
+                                }
+                            </div>
+                            
+                            dayCounter++;
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Holiday Modal -->
+    <div class="modal fade" id="addHolidayModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Holiday</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="Add" method="post" id="addHolidayForm">
+                    <div class="modal-body">
+                        <input type="hidden" name="BSYear" id="holidayBsYear">
+                        <input type="hidden" name="BSMonth" id="holidayBsMonth">
+                        <input type="hidden" name="BSDay" id="holidayBsDay">
+                        
+                        <div class="mb-3">
+                            <label for="Name" class="form-label">Holiday Name</label>
+                            <input type="text" class="form-control" id="Name" name="Name" required>
+                            <span class="text-danger field-validation-valid" data-valmsg-for="Name" data-valmsg-replace="true"></span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="Description" class="form-label">Description</label>
+                            <textarea class="form-control" id="Description" name="Description" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <p class="text-muted">
+                                Date: <span id="holidayDateDisplay"></span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Holiday</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .calendar-grid {
+            min-height: 500px;
+        }
+        
+        .calendar-day-cell {
+            border: 1px solid #dee2e6;
+            min-height: 100px;
+            position: relative;
+        }
+        
+        .empty-day {
+            background-color: #f8f9fa;
+        }
+        
+        .day-number {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .today .day-number {
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .holiday-badge {
+            background-color: #fff3bf;
+            border-radius: 4px;
+            padding: 2px 5px;
+            margin-bottom: 3px;
+            font-size: 0.8rem;
+            position: relative;
+        }
+        
+        .holiday-badge .delete-holiday-form {
+            position: absolute;
+            right: 2px;
+            top: 2px;
+        }
+        
+        .add-holiday-btn {
+            width: 100%;
+            font-size: 0.7rem;
+            padding: 0.15rem 0.3rem;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Initialize tooltips
+            $('[data-bs-toggle="tooltip"]').tooltip();
+            
+            // Handle add holiday button click
+            $('.add-holiday-btn').click(function() {
+                const year = $(this).data('bs-year');
+                const month = $(this).data('bs-month');
+                const day = $(this).data('bs-day');
+                
+                $('#holidayBsYear').val(year);
+                $('#holidayBsMonth').val(month);
+                $('#holidayBsDay').val(day);
+                $('#holidayDateDisplay').text(`${day} ${getMonthName(month)} ${year}`);
+                
+                $('#Name').val('');
+                $('#Description').val('');
+                
+                $('#addHolidayModal').modal('show');
+            });
+            
+            // Handle delete holiday form submission
+            $('.delete-holiday-form').submit(function(e) {
+                e.preventDefault();
+                if (confirm('Are you sure you want to delete this holiday?')) {
+                    this.submit();
+                }
+            });
+            
+            // Nepali month names (replace with actual from server if needed)
+            function getMonthName(month) {
+                const months = [
+                    'Baisakh', 'Jestha', 'Ashadh', 'Shrawan', 
+                    'Bhadra', 'Ashoj', 'Kartik', 'Mangsir', 
+                    'Poush', 'Magh', 'Falgun', 'Chaitra'
+                ];
+                return months[month - 1] || '';
+            }
+        });
+    </script>
+}

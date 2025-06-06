@@ -16,6 +16,7 @@ namespace HRMS.Application.Models
         public Employee Employee { get; set; }
         public DateTime CheckIn { get; set; }
         public DateTime? CheckOut { get; set; }
+
         public AttendanceStatus Status { get; set; } = AttendanceStatus.Present;
         public DateTime CreatedOn { get; set; } = DateTime.Now;
         public string CreatedBy { get; set; }

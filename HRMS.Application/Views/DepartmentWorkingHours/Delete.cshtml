@@ -1,0 +1,32 @@
+﻿@model HRMS.Application.Models.DepartmentWorkingHours
+
+@{
+    ViewData["Title"] = "Delete Department Working Hours";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<div class="alert alert-warning">
+    Are you sure you want to delete the working hours for the department:
+    <strong>@Model.Department?.Name</strong>?
+</div>
+
+<dl class="row">
+    <dt class="col-sm-4">Start Time</dt>
+    <dd class="col-sm-8">@Model.StartTime</dd>
+
+    <dt class="col-sm-4">End Time</dt>
+    <dd class="col-sm-8">@Model.EndTime</dd>
+
+    <dt class="col-sm-4">Late Threshold</dt>
+    <dd class="col-sm-8">@Model.LateThreshold</dd>
+
+    <dt class="col-sm-4">Required Work Hours</dt>
+    <dd class="col-sm-8">@Model.RequiredWorkHours</dd>
+</dl>
+
+<form asp-action="Delete">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+</form>

@@ -176,3 +176,7 @@ body {
 .border-left-warning {
     border-left: 5px solid #ffc107;
 }
+
+/*.components li a.active + ul.collapse {
+    display: block;
+}*/

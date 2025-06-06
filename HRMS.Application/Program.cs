@@ -131,6 +131,8 @@ namespace HRMS.Application
             services.AddScoped<IZkDeviceService, ZkDeviceService>();
             services.AddScoped<IAttendanceStatusService, AttendanceStatusService>();
             services.AddScoped<IHolidayService, HolidayService>();
+            services.AddScoped<INepaliDateConverter, NepaliDateConverter>();
+            services.AddScoped<INepaliCalendarService, NepaliCalendarService>();
         }
 
         private static void ConfigureMiddleware(WebApplication app, IWebHostEnvironment env)

@@ -44,6 +44,21 @@
                             <i class="bi bi-clipboard-data"></i> Attendance Summary
                         </a>
                     </li>
+                    <li>
+                        <a asp-controller="Leave" asp-action="Index">
+                            <i class="bi bi-journal-check"></i> Leave Management
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Holiday" asp-action="Calendar">
+                            <i class="bi bi-calendar-heart"></i> Holiday Management
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="DepartmentWorkingHours" asp-action="Index">
+                            <i class="bi bi-clock-history"></i> Working Hours
+                        </a>
+                    </li>
                 </ul>
             </li>
         }
@@ -84,3 +99,45 @@
         </li>
     }
 </ul>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Store the active submenu in localStorage
+        const submenuLinks = document.querySelectorAll('.components .dropdown-toggle');
+
+        submenuLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                // Get the target submenu
+                const targetId = this.getAttribute('href');
+                const submenu = document.querySelector(targetId);
+
+                // Toggle the submenu
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+                this.setAttribute('aria-expanded', !isExpanded);
+                submenu.classList.toggle('show');
+
+                // Store the state in localStorage
+                localStorage.setItem('activeSubmenu', isExpanded ? '' : targetId);
+            });
+        });
+
+        // Restore the active submenu on page load
+        const activeSubmenuId = localStorage.getItem('activeSubmenu');
+        if (activeSubmenuId) {
+            const activeLink = document.querySelector(`[href="${activeSubmenuId}"]`);
+            const activeSubmenu = document.querySelector(activeSubmenuId);
+
+            if (activeLink && activeSubmenu) {
+                activeLink.setAttribute('aria-expanded', 'true');
+                activeSubmenu.classList.add('show');
+            }
+        }
+
+        // Prevent submenu clicks from closing the menu
+        document.querySelectorAll('.components .dropdown-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        });
+    });
+</script>

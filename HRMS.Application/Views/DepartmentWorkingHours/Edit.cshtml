@@ -1,0 +1,42 @@
+﻿@model HRMS.Application.Models.DepartmentWorkingHours
+
+@{
+    ViewData["Title"] = "Edit Department Working Hours";
+    var departments = ViewBag.Departments as List<HRMS.Application.Models.Department>;
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Id" />
+
+    <div class="form-group">
+        <label asp-for="DepartmentId"></label>
+        <select asp-for="DepartmentId" class="form-control" asp-items="@(new SelectList(departments, "Id", "Name", Model.DepartmentId))">
+            <option value="">-- Select Department --</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="StartTime"></label>
+        <input asp-for="StartTime" class="form-control" type="time" />
+    </div>
+
+    <div class="form-group">
+        <label asp-for="EndTime"></label>
+        <input asp-for="EndTime" class="form-control" type="time" />
+    </div>
+
+    <div class="form-group">
+        <label asp-for="LateThreshold"></label>
+        <input asp-for="LateThreshold" class="form-control" type="time" />
+    </div>
+
+    <div class="form-group">
+        <label asp-for="RequiredWorkHours"></label>
+        <input asp-for="RequiredWorkHours" class="form-control" type="number" step="0.1" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+</form>
