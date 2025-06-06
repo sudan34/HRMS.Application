@@ -76,7 +76,7 @@ namespace HRMS.Application.Controllers
                 })
                 .ToListAsync();
             // Get upcoming holidays
-            //var upcomingHolidays = await GetUpcomingHolidays();
+            var upcomingHolidays = await GetUpcomingHolidays();
 
             var viewModel = new DashboardViewModel
             {
@@ -89,29 +89,30 @@ namespace HRMS.Application.Controllers
                 ChartDays = chartDays.Select(d => d.Day).ToList(),
                 PresentData = chartDays.Select(d => d.Present).ToList(),
                 LateData = chartDays.Select(d => d.Late).ToList(),
-                AbsentData = chartDays.Select(d => d.Absent).ToList()
+                AbsentData = chartDays.Select(d => d.Absent).ToList(),
+                UpcomingHolidays = upcomingHolidays
             };
 
             return View(viewModel);
         }
 
-        //private async Task<List<HolidayViewModel>> GetUpcomingHolidays()
-        //{
-        //    var currentDate = DateTime.Today;
-        //    var upcomingHolidays = await _context.Holidays
-        //        .Where(h => h.Date >= currentDate)
-        //        .OrderBy(h => h.Date)
-        //        .Take(5) // Limit to 5 upcoming holidays
-        //        .Select(h => new HolidayViewModel
-        //        {
-        //            Name = h.Name,
-        //            Date = h.Date,
-        //            Description = h.Description
-        //        })
-        //        .ToListAsync();
+        private async Task<List<HolidayViewModel>> GetUpcomingHolidays()
+        {
+            var currentDate = DateTime.Today;
+            var upcomingHolidays = await _context.Holidays
+                .Where(h => h.IsActive && h.Date >= currentDate)
+                .OrderBy(h => h.Date)
+                .Take(5) // Limit to 5 upcoming holidays
+                .Select(h => new HolidayViewModel
+                {
+                    Name = h.Name,
+                    Date = h.Date,
+                    Description = h.Description
+                })
+                .ToListAsync();
 
-        //    return upcomingHolidays;
-        //}
+            return upcomingHolidays;
+        }
 
         public IActionResult Privacy()
         {

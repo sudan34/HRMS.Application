@@ -1,7 +1,7 @@
 ﻿@model HRMS.Application.ViewModel.HolidayCalendarViewModel
 
 @{
-    ViewData["Title"] = $"Holiday Calendar - {Model.MonthName} {Model.BSYear}";
+    ViewData["Title"] = $"Holiday Calendar - {Model.MonthName} {Model.Year}";
 }
 
 <div class="container mt-4">
@@ -47,14 +47,14 @@
                         {
                             var day = dayCounter < Model.CalendarDays.Count ? Model.CalendarDays[dayCounter] : null;
 
-                            <div class="col p-2 calendar-day-cell @(day == null || day.IsEmpty ? "empty-day" : "")">
+                            <div class="col p-2 calendar-day-cell @(day == null || day.IsEmpty ? "empty-day" : "") @(day?.IsWeekend ?? false ? "weekend-day" : "")">
                                 @if (day != null && !day.IsEmpty)
                                 {
                                     <div class="day-number @(day.IsToday ? "today" : "")">
                                         @day.Day
                                     </div>
 
-                                    var dayHolidays = Model.Holidays.Where(h => h.BSDay == day.Day).ToList();
+                                    var dayHolidays = Model.Holidays.Where(h => h.Date.Day == day.Day).ToList();
                                     foreach (var holiday in dayHolidays)
                                     {
                                         <div class="holiday-badge"
@@ -90,6 +90,10 @@
         .empty-day {
             background-color: #f8f9fa;
         }
+        
+        .weekend-day {
+            background-color: #f0f0f0;
+        }
 
         .day-number {
             font-weight: bold;
@@ -113,7 +117,6 @@
             padding: 2px 5px;
             margin-bottom: 3px;
             font-size: 0.8rem;
-            position: relative;
         }
     </style>
 }

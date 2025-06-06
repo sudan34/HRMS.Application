@@ -99,7 +99,7 @@
     <!-- Additional Information Row -->
     <div class="row g-4">
         <!-- Today's Attendance Table -->
-        <div class="col-lg-12">
+        <div class="col-lg-8">
             <div class="card shadow-sm">
                 <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Today's Attendance</h6>
@@ -179,9 +179,50 @@
                 </div>
             </div>
         </div>
+        <!-- Upcoming Holidays -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="m-0 font-weight-bold text-primary">Upcoming Holidays</h6>
+                </div>
+                <div class="card-body">
+                    <div class="upcoming-holidays">
+                        @if (Model.UpcomingHolidays.Any())
+                        {
+                            foreach (var holiday in Model.UpcomingHolidays)
+                            {
+                                var daysUntilHoliday = (holiday.Date - DateTime.Today).Days;
+                                string badgeClass = daysUntilHoliday <= 0
+                                ? "bg-secondary text-white"        // Today or past
+                                : daysUntilHoliday <= 3
+                                ? "bg-danger text-white"       // Very soon (1–3 days)
+                                : daysUntilHoliday <= 7
+                                ? "bg-warning text-dark"   // Coming this week
+                                : "bg-info text-dark";      // Later
 
+                                <a asp-action="EmployeeCalendar" asp-controller="Holiday"
+                                   asp-route-year="@holiday.Date.Year" asp-route-month="@holiday.Date.Month"
+                                   class="text-decoration-none">
+                                    <div class="d-flex mb-3 card-clickable">
+                                        <div>
+                                            <div class="fw-bold">@holiday.Name</div>
+                                            <div class="text-muted small">@holiday.Date.ToString("MMM dd")</div>
+                                            <div class="badge @badgeClass">@holiday.Description</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center">No upcoming holidays.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- Recent Activities and Upcoming Leaves -->
-       @*  <div class="col-lg-4">
+          @* <div class="col-lg-4">
             <!-- Recent Activities -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white border-bottom">
@@ -221,6 +262,7 @@
                 </div>
             </div>
 
+            @*
             <!-- Upcoming Leaves -->
             <div class="card shadow-sm">
                 <div class="card-header bg-white border-bottom">
@@ -262,13 +304,13 @@
                 </div>
             </div>
         </div> *@
-    </div>
+    </div> 
 </div>
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-       
+
         const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
         const attendanceChart = new Chart(attendanceCtx, {
             type: 'bar',

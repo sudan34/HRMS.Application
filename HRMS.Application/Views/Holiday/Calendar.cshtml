@@ -2,7 +2,7 @@
 @model HolidayCalendarViewModel
 
 @{
-    ViewData["Title"] = $"Holiday Calendar - {Model.MonthName} {Model.BSYear}";
+    ViewData["Title"] = $"Holiday Calendar - {Model.MonthName} {Model.Year}";
 }
 
 <div class="container mt-4">
@@ -40,10 +40,6 @@
         <div class="card-body">
             <!-- Weekday Headers -->
             <div class="row text-center fw-bold mb-2">
-                @* @foreach (var day in _nepaliCalendar.GetWeekDays())
-                {
-                    <div class="col p-2">@day.Value</div>
-                } *@
                 @foreach (var day in Model.WeekDays)
                 {
                     <div class="col p-2">@day.Value</div>
@@ -62,14 +58,14 @@
                         {
                             var day = dayCounter < Model.CalendarDays.Count ? Model.CalendarDays[dayCounter] : null;
                             
-                            <div class="col p-2 calendar-day-cell @(day == null || day.IsEmpty ? "empty-day" : "")">
+                            <div class="col p-2 calendar-day-cell @(day == null || day.IsEmpty ? "empty-day" : "") @(day?.IsWeekend ?? false ? "weekend-day" : "")">
                                 @if (day != null && !day.IsEmpty)
                                 {
                                     <div class="day-number @(day.IsToday ? "today" : "")">
                                         @day.Day
                                     </div>
                                     
-                                    var dayHolidays = Model.Holidays.Where(h => h.BSDay == day.Day).ToList();
+                                    var dayHolidays = Model.Holidays.Where(h => h.Date.Day == day.Day).ToList();
                                     foreach (var holiday in dayHolidays)
                                     {
                                         <div class="holiday-badge" 
@@ -80,8 +76,8 @@
                                             <form class="delete-holiday-form" 
                                                   asp-action="Delete" 
                                                   asp-route-id="@holiday.Id"
-                                                  asp-route-returnYear="@Model.BSYear"
-                                                  asp-route-returnMonth="@Model.BSMonth">
+                                                  asp-route-returnYear="@Model.Year"
+                                                  asp-route-returnMonth="@Model.Month">
                                                 <button type="submit" class="btn btn-sm btn-link text-danger">
                                                     <i class="fas fa-times"></i>
                                                 </button>
@@ -92,9 +88,9 @@
                                     if (dayHolidays.Count == 0)
                                     {
                                         <button class="btn btn-sm btn-outline-secondary add-holiday-btn"
-                                                data-bs-year="@Model.BSYear"
-                                                data-bs-month="@Model.BSMonth"
-                                                data-bs-day="@day.Day">
+                                                data-year="@Model.Year"
+                                                data-month="@Model.Month"
+                                                data-day="@day.Day">
                                             <i class="fas fa-plus"></i> Add Holiday
                                         </button>
                                     }
@@ -119,9 +115,7 @@
                 </div>
                 <form asp-action="Add" method="post" id="addHolidayForm">
                     <div class="modal-body">
-                        <input type="hidden" name="BSYear" id="holidayBsYear">
-                        <input type="hidden" name="BSMonth" id="holidayBsMonth">
-                        <input type="hidden" name="BSDay" id="holidayBsDay">
+                        <input type="hidden" name="Date" id="holidayDate">
                         
                         <div class="mb-3">
                             <label for="Name" class="form-label">Holiday Name</label>
@@ -164,6 +158,10 @@
         
         .empty-day {
             background-color: #f8f9fa;
+        }
+        
+        .weekend-day {
+            background-color: #f0f0f0;
         }
         
         .day-number {
@@ -213,14 +211,13 @@
             
             // Handle add holiday button click
             $('.add-holiday-btn').click(function() {
-                const year = $(this).data('bs-year');
-                const month = $(this).data('bs-month');
-                const day = $(this).data('bs-day');
+                const year = $(this).data('year');
+                const month = $(this).data('month');
+                const day = $(this).data('day');
                 
-                $('#holidayBsYear').val(year);
-                $('#holidayBsMonth').val(month);
-                $('#holidayBsDay').val(day);
-                $('#holidayDateDisplay').text(`${day} ${getMonthName(month)} ${year}`);
+                const date = new Date(year, month - 1, day);
+                $('#holidayDate').val(date.toISOString());
+                $('#holidayDateDisplay').text(date.toLocaleDateString());
                 
                 $('#Name').val('');
                 $('#Description').val('');
@@ -235,16 +232,6 @@
                     this.submit();
                 }
             });
-            
-            // Nepali month names (replace with actual from server if needed)
-            function getMonthName(month) {
-                const months = [
-                    'Baisakh', 'Jestha', 'Ashadh', 'Shrawan', 
-                    'Bhadra', 'Ashoj', 'Kartik', 'Mangsir', 
-                    'Poush', 'Magh', 'Falgun', 'Chaitra'
-                ];
-                return months[month - 1] || '';
-            }
         });
     </script>
 }

@@ -11,13 +11,7 @@ namespace HRMS.Application.Models
         public string Name { get; set; }
 
         [Required]
-        public int BSYear { get; set; }  // Bikram Sambat year (e.g., 2080)
-
-        [Required]
-        public int BSMonth { get; set; } // 1-12
-
-        [Required]
-        public int BSDay { get; set; }   // 1-32
+        public DateTime Date { get; set; }
 
         public string Description { get; set; }
         public bool IsActive { get; set; } = true;

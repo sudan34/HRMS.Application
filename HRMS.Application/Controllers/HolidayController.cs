@@ -10,48 +10,46 @@ namespace HRMS.Application.Controllers
     public class HolidayController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly INepaliCalendarService _nepaliCalendar;
         private readonly IHolidayService _holidayService;
 
         public HolidayController(
             ApplicationDbContext context,
-            INepaliCalendarService nepaliCalendar,
             IHolidayService holidayService)
         {
             _context = context;
-            _nepaliCalendar = nepaliCalendar;
             _holidayService = holidayService;
         }
 
         // GET: Holiday/Calendar
         public async Task<IActionResult> Calendar(int? year, int? month)
         {
-            // Get current Nepali date if no parameters provided
-            var currentBS = _nepaliCalendar.GetCurrentBSDate();
-            int viewYear = year ?? currentBS.Year;
-            int viewMonth = month ?? currentBS.Month;
+            // Get current date if no parameters provided
+            var currentDate = DateTime.Now;
+            int viewYear = year ?? currentDate.Year;
+            int viewMonth = month ?? currentDate.Month;
 
             // Validate month range
             if (viewMonth < 1 || viewMonth > 12)
             {
-                viewMonth = currentBS.Month;
+                viewMonth = currentDate.Month;
             }
 
             // Get holidays for the selected month
-            var holidays = await _holidayService.GetHolidaysForMonth(viewYear, viewMonth);
+            var startDate = new DateTime(viewYear, viewMonth, 1);
+            var endDate = startDate.AddMonths(1).AddDays(-1);
+            var holidays = await _holidayService.GetHolidaysForDateRange(startDate, endDate);
 
             // Prepare calendar view model
             var model = new HolidayCalendarViewModel
             {
-                BSYear = viewYear,
-                BSMonth = viewMonth,
-                MonthName = _nepaliCalendar.GetMonthName(viewMonth),
-                CalendarDays = _nepaliCalendar.GetMonthCalendar(viewYear, viewMonth),
+                Year = viewYear,
+                Month = viewMonth,
+                MonthName = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(viewMonth),
+                CalendarDays = GenerateCalendarDays(viewYear, viewMonth),
                 Holidays = holidays,
-                PreviousMonth = _nepaliCalendar.GetPreviousMonth(viewYear, viewMonth),
-                NextMonth = _nepaliCalendar.GetNextMonth(viewYear, viewMonth),
-
-                WeekDays = _nepaliCalendar.GetWeekDays()
+                PreviousMonth = GetPreviousMonth(viewYear, viewMonth),
+                NextMonth = GetNextMonth(viewYear, viewMonth),
+                WeekDays = GetWeekDays()
             };
 
             return View(model);
@@ -67,14 +65,12 @@ namespace HRMS.Application.Controllers
                 {
                     await _holidayService.AddHoliday(
                         model.Name,
-                        model.BSYear,
-                        model.BSMonth,
-                        model.BSDay,
+                        model.Date,
                         model.Description,
                         User.Identity.Name);
 
                     TempData["SuccessMessage"] = "Holiday added successfully";
-                    return RedirectToAction(nameof(Calendar), new { year = model.BSYear, month = model.BSMonth });
+                    return RedirectToAction(nameof(Calendar), new { year = model.Date.Year, month = model.Date.Month });
                 }
                 catch (Exception ex)
                 {
@@ -82,9 +78,8 @@ namespace HRMS.Application.Controllers
                 }
             }
 
-            // If we got this far, something failed
             TempData["ErrorMessage"] = "Failed to add holiday";
-            return RedirectToAction(nameof(Calendar), new { year = model.BSYear, month = model.BSMonth });
+            return RedirectToAction(nameof(Calendar), new { year = model.Date.Year, month = model.Date.Month });
         }
 
         // POST: Holiday/Delete
@@ -109,62 +104,111 @@ namespace HRMS.Application.Controllers
         [HttpGet]
         public async Task<JsonResult> GetHolidays(int year, int month)
         {
-            var holidays = await _holidayService.GetHolidaysForMonth(year, month);
+            var startDate = new DateTime(year, month, 1);
+            var endDate = startDate.AddMonths(1).AddDays(-1);
+            var holidays = await _holidayService.GetHolidaysForDateRange(startDate, endDate);
+
             return Json(holidays.Select(h => new {
                 id = h.Id,
-                day = h.BSDay,
+                day = h.Date.Day,
                 name = h.Name,
                 description = h.Description
             }));
         }
+
         // GET: Holiday/EmployeeCalendar
         public async Task<IActionResult> EmployeeCalendar(int? year, int? month)
         {
-            // Get current Nepali date if no parameters provided
-            var currentBS = _nepaliCalendar.GetCurrentBSDate();
-            int viewYear = year ?? currentBS.Year;
-            int viewMonth = month ?? currentBS.Month;
+            // Get current date if no parameters provided
+            var currentDate = DateTime.Now;
+            int viewYear = year ?? currentDate.Year;
+            int viewMonth = month ?? currentDate.Month;
 
             // Validate month range
             if (viewMonth < 1 || viewMonth > 12)
             {
-                viewMonth = currentBS.Month;
+                viewMonth = currentDate.Month;
             }
 
             // Get holidays for the selected month
-            var holidays = await _holidayService.GetHolidaysForMonth(viewYear, viewMonth);
+            var startDate = new DateTime(viewYear, viewMonth, 1);
+            var endDate = startDate.AddMonths(1).AddDays(-1);
+            var holidays = await _holidayService.GetHolidaysForDateRange(startDate, endDate);
 
             // Prepare calendar view model
             var model = new HolidayCalendarViewModel
             {
-                BSYear = viewYear,
-                BSMonth = viewMonth,
-                MonthName = _nepaliCalendar.GetMonthName(viewMonth),
-                CalendarDays = _nepaliCalendar.GetMonthCalendar(viewYear, viewMonth),
+                Year = viewYear,
+                Month = viewMonth,
+                MonthName = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(viewMonth),
+                CalendarDays = GenerateCalendarDays(viewYear, viewMonth),
                 Holidays = holidays,
-                PreviousMonth = _nepaliCalendar.GetPreviousMonth(viewYear, viewMonth),
-                NextMonth = _nepaliCalendar.GetNextMonth(viewYear, viewMonth),
-                WeekDays = _nepaliCalendar.GetWeekDays()
+                PreviousMonth = GetPreviousMonth(viewYear, viewMonth),
+                NextMonth = GetNextMonth(viewYear, viewMonth),
+                WeekDays = GetWeekDays()
             };
 
             return View(model);
         }
 
-        //public async Task<IActionResult> GetHolidayDetails(int id)
-        //{
-        //    var holiday = await _holidayService.GetHolidayById(id); // Assume this method retrieves the holiday from the database
-        //    var adDate = _holidayService.GetADDate(holiday);
+        #region Helper Methods
+        private List<CalendarDay> GenerateCalendarDays(int year, int month)
+        {
+            var days = new List<CalendarDay>();
+            var firstDayOfMonth = new DateTime(year, month, 1);
+            var daysInMonth = DateTime.DaysInMonth(year, month);
+            var currentDate = DateTime.Now;
 
-        //    // Use adDate as needed
-        //    return View(holiday);
-        //}
+            // Add empty days for the first week
+            int firstDayOfWeek = (int)firstDayOfMonth.DayOfWeek;
+            for (int i = 0; i < firstDayOfWeek; i++)
+            {
+                days.Add(new CalendarDay { IsEmpty = true });
+            }
 
-        //public async Task<IActionResult> GetHolidaysInADDateRange(DateTime startDate, DateTime endDate)
-        //{
-        //    var holidays = await _holidayService.GetHolidaysForADDateRange(startDate, endDate);
+            // Add actual days of the month
+            for (int day = 1; day <= daysInMonth; day++)
+            {
+                var date = new DateTime(year, month, day);
+                days.Add(new CalendarDay
+                {
+                    Day = day,
+                    IsToday = date.Date == currentDate.Date,
+                    IsWeekend = date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday
+                });
+            }
 
-        //    // Use holidays as needed
-        //    return View(holidays);
-        //}
+            return days;
+        }
+
+        private (int Year, int Month) GetPreviousMonth(int year, int month)
+        {
+            if (month == 1)
+                return (year - 1, 12);
+            return (year, month - 1);
+        }
+
+        private (int Year, int Month) GetNextMonth(int year, int month)
+        {
+            if (month == 12)
+                return (year + 1, 1);
+            return (year, month + 1);
+        }
+
+        private Dictionary<int, string> GetWeekDays()
+        {
+            return new Dictionary<int, string>
+            {
+                { 0, "Sun" },
+                { 1, "Mon" },
+                { 2, "Tue" },
+                { 3, "Wed" },
+                { 4, "Thu" },
+                { 5, "Fri" },
+                { 6, "Sat" }
+            };
+        }
+        #endregion
     }
 }
+
