@@ -35,7 +35,7 @@ namespace HRMS.Application.Controllers
                 .ThenInclude(e => e.Department)
                 .Where(a => a.CheckIn.Date == today)
                 .ToListAsync();
-            
+
             // Last 7 days attendance data for the chart
             var attendanceData = await _context.Attendances
                 .Where(a => a.CheckIn.Date >= lastWeek && a.CheckIn.Date <= today)
@@ -69,12 +69,14 @@ namespace HRMS.Application.Controllers
             // Get department distribution data
             var departmentData = await _context.Departments
                 .Include(d => d.Employees)
-                .Select(d => new {
+                .Select(d => new
+                {
                     Name = d.Name,
                     Count = d.Employees.Count
                 })
                 .ToListAsync();
-
+            // Get upcoming holidays
+            //var upcomingHolidays = await GetUpcomingHolidays();
 
             var viewModel = new DashboardViewModel
             {
@@ -92,6 +94,24 @@ namespace HRMS.Application.Controllers
 
             return View(viewModel);
         }
+
+        //private async Task<List<HolidayViewModel>> GetUpcomingHolidays()
+        //{
+        //    var currentDate = DateTime.Today;
+        //    var upcomingHolidays = await _context.Holidays
+        //        .Where(h => h.Date >= currentDate)
+        //        .OrderBy(h => h.Date)
+        //        .Take(5) // Limit to 5 upcoming holidays
+        //        .Select(h => new HolidayViewModel
+        //        {
+        //            Name = h.Name,
+        //            Date = h.Date,
+        //            Description = h.Description
+        //        })
+        //        .ToListAsync();
+
+        //    return upcomingHolidays;
+        //}
 
         public IActionResult Privacy()
         {

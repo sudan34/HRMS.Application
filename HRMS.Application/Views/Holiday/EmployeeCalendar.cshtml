@@ -1,0 +1,128 @@
+﻿@model HRMS.Application.ViewModel.HolidayCalendarViewModel
+
+@{
+    ViewData["Title"] = $"Holiday Calendar - {Model.MonthName} {Model.BSYear}";
+}
+
+<div class="container mt-4">
+    <!-- Navigation and Title -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>@ViewData["Title"]</h2>
+        <div>
+            <a asp-action="EmployeeCalendar"
+               asp-route-year="@Model.PreviousMonth.Year"
+               asp-route-month="@Model.PreviousMonth.Month"
+               class="btn btn-outline-primary">
+                <i class="fas fa-chevron-left"></i> Previous
+            </a>
+            <a asp-action="EmployeeCalendar"
+               asp-route-year="@Model.NextMonth.Year"
+               asp-route-month="@Model.NextMonth.Month"
+               class="btn btn-outline-primary">
+                Next <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Calendar Display -->
+    <div class="card">
+        <div class="card-body">
+            <!-- Weekday Headers -->
+            <div class="row text-center fw-bold mb-2">
+                @foreach (var day in Model.WeekDays)
+                {
+                    <div class="col p-2">@day.Value</div>
+                }
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="calendar-grid">
+                @{
+                    int dayCounter = 0;
+                }
+                @for (int row = 0; row < 6; row++)
+                {
+                    <div class="row calendar-row">
+                        @for (int col = 0; col < 7; col++)
+                        {
+                            var day = dayCounter < Model.CalendarDays.Count ? Model.CalendarDays[dayCounter] : null;
+
+                            <div class="col p-2 calendar-day-cell @(day == null || day.IsEmpty ? "empty-day" : "")">
+                                @if (day != null && !day.IsEmpty)
+                                {
+                                    <div class="day-number @(day.IsToday ? "today" : "")">
+                                        @day.Day
+                                    </div>
+
+                                    var dayHolidays = Model.Holidays.Where(h => h.BSDay == day.Day).ToList();
+                                    foreach (var holiday in dayHolidays)
+                                    {
+                                        <div class="holiday-badge"
+                                             data-bs-toggle="tooltip"
+                                             title="@holiday.Name - @holiday.Description">
+                                            @holiday.Name
+                                        </div>
+                                    }
+                                }
+                            </div>
+
+                            dayCounter++;
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .calendar-grid {
+            min-height: 500px;
+        }
+
+        .calendar-day-cell {
+            border: 1px solid #dee2e6;
+            min-height: 100px;
+            position: relative;
+        }
+
+        .empty-day {
+            background-color: #f8f9fa;
+        }
+
+        .day-number {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .today .day-number {
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .holiday-badge {
+            background-color: #fff3bf;
+            border-radius: 4px;
+            padding: 2px 5px;
+            margin-bottom: 3px;
+            font-size: 0.8rem;
+            position: relative;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Initialize tooltips
+            $('[data-bs-toggle="tooltip"]').tooltip();
+        });
+    </script>
+}

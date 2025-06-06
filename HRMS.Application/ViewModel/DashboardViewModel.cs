@@ -14,5 +14,7 @@ namespace HRMS.Application.ViewModel
         public List<int> PresentData { get; set; }
         public List<int> LateData { get; set; }
         public List<int> AbsentData { get; set; }
+
+       // public List<HolidayViewModel> UpcomingHolidays { get; set; }
     }
 }

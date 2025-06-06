@@ -1,6 +1,5 @@
 ﻿using HRMS.Application.Services;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HRMS.Application.Models
 {
@@ -19,15 +18,6 @@ namespace HRMS.Application.Models
 
         [Required]
         public int BSDay { get; set; }   // 1-32
-
-        // AD equivalent for easy querying (calculated on save)
-        //public DateTime ADDate
-        //{
-        //    get
-        //    {
-        //        return INepaliDateConverter.ConvertToAD(BSYear, BSMonth, BSDay);
-        //    }
-        //}
 
         public string Description { get; set; }
         public bool IsActive { get; set; } = true;

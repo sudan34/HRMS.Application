@@ -1,10 +1,8 @@
 ﻿using HRMS.Application.Data;
-using HRMS.Application.Models;
 using HRMS.Application.Services;
 using HRMS.Application.ViewModel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace HRMS.Application.Controllers
 {
@@ -119,96 +117,54 @@ namespace HRMS.Application.Controllers
                 description = h.Description
             }));
         }
-        //public async Task<IActionResult> Index()
-        //{
-        //    return View(await _context.Holidays
-        //        .OrderBy(h => h.Date)
-        //        .ToListAsync());
-        //}
+        // GET: Holiday/EmployeeCalendar
+        public async Task<IActionResult> EmployeeCalendar(int? year, int? month)
+        {
+            // Get current Nepali date if no parameters provided
+            var currentBS = _nepaliCalendar.GetCurrentBSDate();
+            int viewYear = year ?? currentBS.Year;
+            int viewMonth = month ?? currentBS.Month;
 
-        //public IActionResult Create()
-        //{
-        //    return View();
-        //}
+            // Validate month range
+            if (viewMonth < 1 || viewMonth > 12)
+            {
+                viewMonth = currentBS.Month;
+            }
 
-        //[HttpPost]
-        //[ValidateAntiForgeryToken]
-        //public async Task<IActionResult> Create(Holiday holiday)
+            // Get holidays for the selected month
+            var holidays = await _holidayService.GetHolidaysForMonth(viewYear, viewMonth);
+
+            // Prepare calendar view model
+            var model = new HolidayCalendarViewModel
+            {
+                BSYear = viewYear,
+                BSMonth = viewMonth,
+                MonthName = _nepaliCalendar.GetMonthName(viewMonth),
+                CalendarDays = _nepaliCalendar.GetMonthCalendar(viewYear, viewMonth),
+                Holidays = holidays,
+                PreviousMonth = _nepaliCalendar.GetPreviousMonth(viewYear, viewMonth),
+                NextMonth = _nepaliCalendar.GetNextMonth(viewYear, viewMonth),
+                WeekDays = _nepaliCalendar.GetWeekDays()
+            };
+
+            return View(model);
+        }
+
+        //public async Task<IActionResult> GetHolidayDetails(int id)
         //{
-        //    if (ModelState.IsValid)
-        //    {
-        //        holiday.CreatedBy = User.Identity.Name;
-        //        holiday.CreatedOn = DateTime.Now;
-        //        _context.Add(holiday);
-        //        await _context.SaveChangesAsync();
-        //        return RedirectToAction(nameof(Index));
-        //    }
+        //    var holiday = await _holidayService.GetHolidayById(id); // Assume this method retrieves the holiday from the database
+        //    var adDate = _holidayService.GetADDate(holiday);
+
+        //    // Use adDate as needed
         //    return View(holiday);
         //}
 
-        //public async Task<IActionResult> Edit(int? id)
+        //public async Task<IActionResult> GetHolidaysInADDateRange(DateTime startDate, DateTime endDate)
         //{
-        //    if (id == null) return NotFound();
+        //    var holidays = await _holidayService.GetHolidaysForADDateRange(startDate, endDate);
 
-        //    var holiday = await _context.Holidays.FindAsync(id);
-        //    if (holiday == null) return NotFound();
-
-        //    return View(holiday);
-        //}
-
-        //[HttpPost]
-        //[ValidateAntiForgeryToken]
-        //public async Task<IActionResult> Edit(int id, Holiday holiday)
-        //{
-        //    if (id != holiday.Id) return NotFound();
-
-        //    if (ModelState.IsValid)
-        //    {
-        //        try
-        //        {
-        //            holiday.UpdatedBy = User.Identity.Name;
-        //            holiday.UpdatedOn = DateTime.Now;
-        //            _context.Update(holiday);
-        //            await _context.SaveChangesAsync();
-        //        }
-        //        catch (DbUpdateConcurrencyException)
-        //        {
-        //            if (!HolidayExists(holiday.Id))
-        //                return NotFound();
-        //            throw;
-        //        }
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //    return View(holiday);
-        //}
-
-        //public async Task<IActionResult> Delete(int? id)
-        //{
-        //    if (id == null) return NotFound();
-
-        //    var holiday = await _context.Holidays
-        //        .FirstOrDefaultAsync(m => m.Id == id);
-        //    if (holiday == null) return NotFound();
-
-        //    return View(holiday);
-        //}
-
-        //[HttpPost, ActionName("Delete")]
-        //[ValidateAntiForgeryToken]
-        //public async Task<IActionResult> DeleteConfirmed(int id)
-        //{
-        //    var holiday = await _context.Holidays.FindAsync(id);
-        //    if (holiday != null)
-        //    {
-        //        _context.Holidays.Remove(holiday);
-        //        await _context.SaveChangesAsync();
-        //    }
-        //    return RedirectToAction(nameof(Index));
-        //}
-
-        //private bool HolidayExists(int id)
-        //{
-        //    return _context.Holidays.Any(e => e.Id == id);
+        //    // Use holidays as needed
+        //    return View(holidays);
         //}
     }
 }

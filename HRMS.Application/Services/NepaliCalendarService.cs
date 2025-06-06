@@ -46,8 +46,11 @@ namespace HRMS.Application.Services
             var daysInMonth = _nepaliCalendarData[year][month - 1];
             var calendarDays = new List<CalendarDay>();
 
+            // Calculate the first day of the month
+            int firstDayOfMonth = CalculateFirstDayOfMonth(year, month);
+
             // Determine the first day of the month
-            var firstDayOfMonth = 2; // Example: Monday (needs actual calculation)
+            //var firstDayOfMonth = 2; // Example: Monday (needs actual calculation)
 
             // Add empty cells for days before the 1st of the month
             for (int i = 0; i < firstDayOfMonth; i++)
@@ -67,6 +70,26 @@ namespace HRMS.Application.Services
             }
 
             return calendarDays;
+        }
+
+        private int CalculateFirstDayOfMonth(int year, int month)
+        {
+            if (month == 1)
+            {
+                // If it's January, get the last day of the previous year's December
+                var previousYear = year - 1;
+                var daysInDecember = _nepaliCalendarData[previousYear][11]; // December is index 11
+                var firstDayOfJanuary = (daysInDecember) % 7;
+                return firstDayOfJanuary;
+            }
+            else
+            {
+                // Get the last day of the previous month
+                var previousMonth = month - 1;
+                var daysInPreviousMonth = _nepaliCalendarData[year][previousMonth - 1];
+                var firstDayOfCurrentMonth = (daysInPreviousMonth) % 7;
+                return firstDayOfCurrentMonth;
+            }
         }
 
         public (int Year, int Month) GetPreviousMonth(int year, int month)
