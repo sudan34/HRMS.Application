@@ -6,5 +6,6 @@ namespace HRMS.Application.Services
     {
         Task<AttendanceStatus> DetermineStatusAsync(Employee employee, DateTime checkInTime);
         Task<AttendanceStatus> FinalizeStatusAsync(Attendance attendance);
+      //  Task<DepartmentRules> GetDepartmentRules(int departmentId);
     }
 }

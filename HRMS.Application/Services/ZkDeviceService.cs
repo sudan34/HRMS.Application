@@ -1,11 +1,8 @@
 ﻿using HRMS.Application.Data;
 using HRMS.Application.Models;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using zkemkeeper;
-using static HRMS.Application.Services.AttendanceStatusService;
 
 namespace HRMS.Application.Services
 {
@@ -17,7 +14,6 @@ namespace HRMS.Application.Services
         private readonly IAttendanceStatusService _attendanceStatusService;
         private CZKEMClass _zkDevice;
         private bool _isConnected = false;
-        //private readonly Dictionary<int, TimeSpan> _departmentLateTimes;
         public ZkDeviceService(ApplicationDbContext context,
                              ILogger<ZkDeviceService> logger,
                              IConfiguration config,
@@ -28,37 +24,8 @@ namespace HRMS.Application.Services
             _config = config;
             _attendanceStatusService = attendanceStatusService;
             _zkDevice = new CZKEMClass();
-            //  _departmentLateTimes = LoadDepartmentLateTimes();
         }
-
-        private Dictionary<int, TimeSpan> LoadDepartmentLateTimes()
-        {
-            var lateTimes = new Dictionary<int, TimeSpan>();
-
-            var defaultTime = TimeSpan.Parse(_config["DepartmentSettings:LateTimes:Default"]);
-
-            var section = _config.GetSection("DepartmentSettings:LateTimes");
-
-            // Load all configured department late times
-            foreach (var dept in section.GetChildren())
-            {
-                if (dept.Key != "Default" &&
-                    int.TryParse(dept.Key, out int deptId) &&
-                    TimeSpan.TryParse(dept.Value, out TimeSpan time))
-                {
-                    if (!lateTimes.ContainsKey(deptId))
-                    {
-                        lateTimes.Add(deptId, time);
-                    }
-                    else
-                    {
-                        _logger.LogWarning($"Duplicate department ID in config: {deptId}");
-                    }
-                }
-            }
-
-            return lateTimes;
-        }
+                
         public async Task<bool> TestConnectionAsync()
         {
             try
@@ -141,6 +108,7 @@ namespace HRMS.Application.Services
                                      .OrderBy(r => r.recordTime)
                                      .ToList();
 
+            // Get all employees (active and inactive) to handle historical records
             var enrollNumbers = validRecords.Select(r => r.enrollNumber).Distinct().ToList();
             var employees = await _context.Employees
                 .Where(e => enrollNumbers.Contains(e.EmployeeId))
@@ -150,25 +118,62 @@ namespace HRMS.Application.Services
             // Process all records
             foreach (var record in validRecords)
             {
-                if (!employees.TryGetValue(record.enrollNumber, out var employee))
+                try
                 {
-                    _logger.LogWarning($"Employee not found: {record.enrollNumber}");
-                    continue;
-                }
+                    if (!employees.TryGetValue(record.enrollNumber, out var employee))
+                    {
+                        // Handle unknown employee
+                        await HandleUnknownEmployeeRecord(record.enrollNumber, record.recordTime, record.inOutMode);
+                        _logger.LogWarning($"Employee not found: {record.enrollNumber}");
+                        continue;
+                    }
 
-                if (record.inOutMode == 0) // Check-in
-                {
-                    await ProcessCheckIn(employee, record.recordTime);
+                    if (!employee.IsActive && record.recordTime.Date >= employee.ResignDate?.Date)
+                    {
+                        // Skip records after resignation date
+                        _logger.LogInformation($"Skipping record for inactive employee {employee.EmployeeId} ({employee.FullName}) on {record.recordTime}");
+                        continue;
+                    }
+
+                    if (record.inOutMode == 0) // Check-in
+                    {
+                        await ProcessCheckIn(employee, record.recordTime);
+                    }
+                    else // Check-out
+                    {
+                        await ProcessCheckOut(employee, record.recordTime);
+                    }
                 }
-                else // Check-out
+                catch (Exception ex)
                 {
-                    await ProcessCheckOut(employee, record.recordTime);
+                    _logger.LogError(ex, $"Error processing record for enrollment {record.enrollNumber} at {record.recordTime}");
                 }
             }
         }
+        private async Task HandleUnknownEmployeeRecord(string enrollNumber, DateTime recordTime, int inOutMode)
+        {
+            // Option 1: Log and ignore (recommended for unknown employees)
+            _logger.LogWarning($"Unknown employee enrollment ID: {enrollNumber} at {recordTime}");
 
+            // Option 2: Create a placeholder record(if you need to track these)
+            _context.UnknownAttendanceRecords.Add(new UnknownAttendanceRecord
+            {
+                EnrollmentNumber = enrollNumber,
+                RecordTime = recordTime,
+                InOutMode = inOutMode,
+                Processed = false
+            });
+            await _context.SaveChangesAsync();
+        }
         private async Task ProcessCheckIn(Employee employee, DateTime checkInTime)
         {
+            // Skip if employee was inactive at check-in time
+            if (!employee.IsActive && checkInTime.Date >= employee.ResignDate?.Date)
+            {
+                _logger.LogInformation($"Skipping check-in for inactive employee {employee.EmployeeId} on {checkInTime}");
+                return;
+            }
+
             var existing = await _context.Attendances
                 .FirstOrDefaultAsync(a =>
                     a.EmployeeId == employee.EmployeeId &&
@@ -200,50 +205,34 @@ namespace HRMS.Application.Services
                 .OrderByDescending(a => a.CheckIn)
                 .FirstOrDefaultAsync();
 
-            if (attendance != null)
-            {
-                // Validate check-out is after check-in
-                if (checkOutTime > attendance.CheckIn)
-                {
-                    attendance.CheckOut = checkOutTime;
-                    attendance.Status = await _attendanceStatusService.FinalizeStatusAsync(attendance);
-                    attendance.UpdatedBy = "System";
-                    attendance.UpdatedOn = checkOutTime;
-                    await _context.SaveChangesAsync();
-                }
-                else
-                {
-                    _logger.LogWarning($"Invalid check-out time {checkOutTime} before check-in {attendance.CheckIn} for employee {employee.EmployeeId}");
-                }
-            }
-            else
-            {
-                // Handle check -out without check-in
-                var status = await _attendanceStatusService.DetermineStatusAsync(employee, checkOutTime.AddHours(-1));
+            if (attendance == null) return;
 
-                _context.Attendances.Add(new Attendance
+            // Get department working hours
+            var department = await _context.Departments
+                .Include(d => d.WorkingHours)
+                .FirstOrDefaultAsync(d => d.Id == employee.DepartmentId);
+
+            var isFriday = checkOutTime.DayOfWeek == DayOfWeek.Friday;
+            var workingHours = department?.WorkingHours;
+
+            attendance.CheckOut = checkOutTime;
+
+            // Only check early departure on non-Fridays
+            if (!isFriday)
+            {
+                var endTime = workingHours?.EndTime ?? new TimeSpan(17, 0, 0);
+
+                if (checkOutTime.TimeOfDay < endTime.Add(TimeSpan.FromMinutes(-15)))
                 {
-                    EmployeeId = employee.EmployeeId,
-                    CheckIn = checkOutTime.AddHours(-1), // Default 1 hour before check-out
-                    CheckOut = checkOutTime,
-                    Status = status == AttendanceStatus.OnLeave ? status : AttendanceStatus.Present,
-                    CreatedBy = "System",
-                    CreatedOn = checkOutTime
-                });
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Created new attendance with check-out only for {employee.EmployeeId} at {checkOutTime}");
+                    attendance.Status = AttendanceStatus.EarlyDeparture;
+                }
             }
+
+            // Finalize status (this will handle Friday's 4-hour requirement automatically)
+            attendance.Status = await _attendanceStatusService.FinalizeStatusAsync(attendance);
+            await _context.SaveChangesAsync();
         }
-        //private AttendanceStatus DetermineAttendanceStatus(int departmentId, DateTime checkInTime)
-        //{
-        //    var lateTime = _departmentLateTimes.TryGetValue(departmentId, out var deptTime)
-        //         ? deptTime
-        //         : TimeSpan.Parse(_config["DepartmentSettings:LateTimes:Default"] ?? "09:30:00");
-
-        //    return checkInTime.TimeOfDay > lateTime
-        //        ? AttendanceStatus.Late
-        //        : AttendanceStatus.Present;
-        //}
+                
         public async Task<List<AttendanceRecord>> GetAttendanceDataAsync(DateTime fromDate, DateTime toDate)
         {
             var records = new List<AttendanceRecord>();
@@ -325,38 +314,6 @@ namespace HRMS.Application.Services
             }
             GC.SuppressFinalize(this);
         }
-
-        private bool IsWeekendForDepartment(Department department, DateTime date)
-        {
-            try
-            {
-                if (department?.DepartmentWeekend == null)
-                {
-                    // Default for departments without configuration: Saturday only
-                    bool isDefaultWeekend = date.DayOfWeek == DayOfWeek.Saturday;
-                    _logger.LogTrace($"No weekend config for {department?.Name}, using default: {isDefaultWeekend}");
-                    return isDefaultWeekend;
-                }
-                //    {
-                //    // Default for departments without configuration: Saturday only
-                //    return date.DayOfWeek == DayOfWeek.Saturday;
-                //}
-                var day = date.DayOfWeek;
-                var weekend = department.DepartmentWeekend;
-
-                bool isWeekend = day == weekend.WeekendDay1 ||
-                            (weekend.WeekendDay2.HasValue && day == weekend.WeekendDay2.Value);
-
-                _logger.LogTrace($"Weekend check for {department.Name}: {date:yyyy-MM-dd} (Day {day}) " +
-                                $"vs config: {weekend.WeekendDay1}/{weekend.WeekendDay2} = {isWeekend}");
-
-                return isWeekend;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error checking weekend for department {department?.Id}");
-                return false; // Don't skip records if there's an error
-            }
-        }
+               
     }
 }
