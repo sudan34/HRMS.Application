@@ -1,23 +1,22 @@
-﻿@model Employee
-
+﻿@using HRMS.Application.ViewModel
+@model EmployeeAttendanceViewModel
 @{
-    ViewData["Title"] = $"{Model.FullName} - Attendance Report";
-    var fromDate = ViewBag.FromDate as DateTime? ?? DateTime.Today.AddDays(-30);
-    var toDate = ViewBag.ToDate as DateTime? ?? DateTime.Today;
+    ViewData["Title"] = $"{Model.Employee.FullName} - Attendance Report";
+    var fromDate = Model.FromDate;
+    var toDate = Model.ToDate;
     var employeeId = ViewBag.EmployeeId as string;
 }
 
 <div class="card shadow-sm mt-4">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-user-clock me-2"></i> @Model.FullName - Attendance Report</h5>
+        <h5 class="mb-0"><i class="fas fa-user-clock me-2"></i> @Model.Employee.FullName - Attendance Report</h5>
         <form method="get" class="d-flex gap-2 align-items-center">
             <input type="hidden" name="employeeId" value="@employeeId" />
-            <input type="date" name="fromDate" value="@fromDate:yyyy-MM-dd" class="form-control form-control-sm" />
-            <input type="date" name="toDate" value="@toDate:yyyy-MM-dd" class="form-control form-control-sm" />
+            <input type="date" name="fromDate" value="@fromDate.ToString("yyyy-MM-dd")" class="form-control form-control-sm" />
+            <input type="date" name="toDate" value="@toDate.ToString("yyyy-MM-dd")" class="form-control form-control-sm" />
             <button type="submit" class="btn btn-light btn-sm">
                 <i class="fas fa-filter"></i> Filter
             </button>
-
         </form>
         <a asp-controller="Attendance" asp-action="Summary" class="btn btn-outline-light btn-sm">
             <i class="bi bi-arrow-left-circle me-1"> Back</i>
@@ -28,28 +27,28 @@
             <div class="col-md-3 mb-2">
                 <div class="card bg-light border-1">
                     <div class="card-body">
-                        <strong>Employee ID</strong><br />@Model.EmployeeId
+                        <strong>Employee ID</strong><br />@Model.Employee.EmployeeId
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-2">
                 <div class="card bg-light border-1">
                     <div class="card-body">
-                        <strong>Email</strong><br />@Model.Email
+                        <strong>Email</strong><br />@Model.Employee.Email
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-2">
                 <div class="card bg-light border-1">
                     <div class="card-body">
-                        <strong>Department</strong><br />@Model.Department?.Name
+                        <strong>Department</strong><br />@Model.Employee.Department?.Name - @Model.Employee.Designation
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-2">
                 <div class="card bg-light border-1">
                     <div class="card-body">
-                        <strong>Join Date</strong><br />@Model.JoinDate.ToString("dd MMM yyyy")
+                        <strong>Join Date</strong><br />@Model.Employee.JoinDate.ToString("dd MMM yyyy")
                     </div>
                 </div>
             </div>
@@ -65,33 +64,24 @@
                         <th>Check Out</th>
                         <th>Working Hours</th>
                         <th>Status</th>
+                        <th>Status Reason</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var date in EachDay(fromDate, toDate))
+                    @foreach (var item in Model.DailyAttendance)
                     {
-                        var attendance = Model.Attendances.FirstOrDefault(a => a.CheckIn.Date == date.Date);
                         <tr>
-                            <td>@date.ToString("dd MMM yyyy")</td>
-                            <td>@date.ToString("ddd")</td>
-                            <td>@(attendance?.CheckIn.ToString("hh:mm tt") ?? "-")</td>
-                            <td>@(attendance?.CheckOut?.ToString("hh:mm tt") ?? "-")</td>
+                            <td>@item.Date.ToString("dd MMM yyyy")</td>
+                            <td>@item.Day</td>
+                            <td>@(item.CheckIn?.ToString("hh:mm tt") ?? "-")</td>
+                            <td>@(item.CheckOut?.ToString("hh:mm tt") ?? "-")</td>
+                            <td>@(item.WorkingHoursDisplay ?? "-")</td>
                             <td>
-                                @if (attendance?.CheckOut != null)
-                                {
-                                    var duration = attendance.CheckOut.Value - attendance.CheckIn;
-                                    @($"{duration.Hours}h {duration.Minutes}m")
-                                }
-                                else
-                                {
-                                    @("-")
-                                }
-                            </td>
-                            <td>
-                                <span class="badge @GetStatusBadgeClass(attendance?.Status ?? AttendanceStatus.Absent)">
-                                    @(attendance?.Status.ToString() ?? "Absent")
+                                <span class="badge @GetStatusBadgeClass(item.Status)">
+                                    @item.Status
                                 </span>
                             </td>
+                            <td>@(item.StatusReason ?? "-")</td>
                         </tr>
                     }
                 </tbody>
@@ -101,24 +91,23 @@
 </div>
 
 @functions {
-    public IEnumerable<DateTime> EachDay(DateTime from, DateTime thru)
+    public string GetStatusBadgeClass(string status)
     {
-        for (var day = from.Date; day.Date <= thru.Date; day = day.AddDays(1))
-            yield return day;
-    }
-
-    public string GetStatusBadgeClass(AttendanceStatus status)
-    {
-        switch (status)
+        switch (status?.ToLower())
         {
-            case AttendanceStatus.Present:
+            case "present":
                 return "bg-success";
-            case AttendanceStatus.Late:
+            case "late":
                 return "bg-warning";
-            case AttendanceStatus.Absent:
+            case "absent":
                 return "bg-danger";
-            case AttendanceStatus.OnLeave:
+            case "holiday":
+            case "weekend":
                 return "bg-info";
+            case "leave":
+                return "bg-primary";
+            case "halfday":
+                return "bg-secondary";
             default:
                 return "bg-secondary";
         }

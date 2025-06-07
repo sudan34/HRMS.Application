@@ -17,18 +17,23 @@
                     </div>
                     <div class="mb-3">
                         <label asp-for="CheckIn" class="form-label"></label>
-                        <input asp-for="CheckIn" class="form-control" />
+                        <input asp-for="CheckIn" class="form-control" type="datetime-local" />
                         <span asp-validation-for="CheckIn" class="text-danger"></span>
                     </div>
                     <div class="mb-3">
                         <label asp-for="CheckOut" class="form-label"></label>
-                        <input asp-for="CheckOut" class="form-control" />
+                        <input asp-for="CheckOut" class="form-control" type="datetime-local" />
                         <span asp-validation-for="CheckOut" class="text-danger"></span>
                     </div>
                     <div class="mb-3">
                         <label asp-for="Status" class="form-label"></label>
                         <select asp-for="Status" class="form-select" asp-items="Html.GetEnumSelectList<HRMS.Application.Models.AttendanceStatus>()"></select>
                         <span asp-validation-for="Status" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Remarks" class="form-label"></label>
+                        <textarea asp-for="Remarks" class="form-control" rows="3"></textarea>
+                        <span asp-validation-for="Remarks" class="text-danger"></span>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -39,3 +44,57 @@
         </div>
     </div>
 </div>
+
+@* @section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        $(document).ready(function () {
+            $('form').on('submit', function (e) {
+                var checkInStr = $('#CheckIn').val();
+                var checkOutStr = $('#CheckOut').val();
+
+                if (checkInStr && checkOutStr) {
+                    var checkIn = new Date(checkInStr);
+                    var checkOut = new Date(checkOutStr);
+
+                    if (checkOut < checkIn) {
+                        e.preventDefault();
+                        showValidationError("#CheckOut", "Check Out time cannot be earlier than Check In time");
+                        return false;
+                    }
+
+                    if (checkOut.toDateString() !== checkIn.toDateString()) {
+                        e.preventDefault();
+                        showValidationError("#CheckOut", "Check Out must be on the same date as Check In");
+                        return false;
+                    }
+                }
+
+                clearValidationError("#CheckOut");
+                return true;
+            });
+
+            function showValidationError(selector, message) {
+                var $field = $(selector);
+                $field.addClass("input-validation-error");
+
+                var $span = $field.siblings("span.field-validation-error");
+                if (!$span.length) {
+                    $span = $('<span class="text-danger field-validation-error"></span>').insertAfter($field);
+                }
+                $span.text(message);
+            }
+
+            function clearValidationError(selector) {
+                var $field = $(selector);
+                $field.removeClass("input-validation-error");
+                var $span = $field.siblings("span.field-validation-error");
+                $span.text('');
+            }
+        });
+    </script>
+
+} *@

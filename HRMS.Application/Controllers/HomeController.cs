@@ -24,7 +24,7 @@ namespace HRMS.Application.Controllers
         }
         public async Task<IActionResult> Dashboard()
         {
-            var today = DateTime.Today; //.AddDays(-3);
+            var today = DateTime.Today.AddDays(-2); //Today; //.AddDays(-3);
             var lastWeek = today.AddDays(-6);
 
             var allEmployees = await _context.Employees.ToListAsync();

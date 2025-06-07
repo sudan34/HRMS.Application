@@ -16,8 +16,7 @@ namespace HRMS.Application.Models
         public Employee Employee { get; set; }
         public DateTime CheckIn { get; set; }
         public DateTime? CheckOut { get; set; }
-
-        public AttendanceStatus Status { get; set; } = AttendanceStatus.Present;
+        public AttendanceStatus Status { get; set; } = AttendanceStatus.Present;      
         public DateTime CreatedOn { get; set; } = DateTime.Now;
         public string CreatedBy { get; set; }
         public DateTime? UpdatedOn { get; set; }
@@ -27,13 +26,14 @@ namespace HRMS.Application.Models
 
     public enum AttendanceStatus
     {
-        Present,
+        Present,    // From device
+        Late,       // From device
+        HalfDay,    // From device
+        EarlyDeparture, // From device
+
         Absent,
-        Late,
         OnLeave,
         Weekend,
         Holiday,
-        HalfDay,
-        EarlyDeparture
     }
 }

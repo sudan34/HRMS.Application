@@ -1,10 +1,13 @@
 using HRMS.Application.Data;
 using HRMS.Application.Models;
+using HRMS.Application.Repository;
 using HRMS.Application.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
+using System.Data;
 
 namespace HRMS.Application
 {
@@ -75,6 +78,12 @@ namespace HRMS.Application
             var connectionString = configuration.GetConnectionString("DefaultConnection");
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(connectionString));
+
+            // Add Dapper configuration
+            services.AddTransient<IDbConnection>(provider =>
+            {
+                return new SqlConnection(connectionString);
+            });
         }
 
         private static void ConfigureIdentity(IServiceCollection services)
@@ -131,6 +140,12 @@ namespace HRMS.Application
             services.AddScoped<IZkDeviceService, ZkDeviceService>();
             services.AddScoped<IAttendanceStatusService, AttendanceStatusService>();
             services.AddScoped<IHolidayService, HolidayService>();
+
+            // Add Dapper repository
+            services.AddScoped<IAttendanceRepository, AttendanceRepository>();
+
+            // Add AutoMapper with assembly scanning
+            services.AddAutoMapper(typeof(Program).Assembly);
         }
 
         private static void ConfigureMiddleware(WebApplication app, IWebHostEnvironment env)

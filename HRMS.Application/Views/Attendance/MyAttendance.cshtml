@@ -1,69 +1,158 @@
-﻿@model IEnumerable<HRMS.Application.Models.Attendance>
-
+﻿@using HRMS.Application.ViewModel
+@model MyAttendanceViewModel
 @{
     ViewData["Title"] = "My Attendance";
-
-    string GetStatusBadgeClass(string status) => status.ToLower() switch
-    {
-        "present" => "success",
-        "absent" => "danger",
-        "leave" => "warning",
-        _ => "secondary"
-    };
+    var fromDate = ViewBag.FromDate as DateTime? ?? DateTime.Today.AddDays(-7);
+    var toDate = ViewBag.ToDate as DateTime? ?? DateTime.Today;
+    var employeeName = ViewBag.EmployeeName as string;
 }
 
-<div class="container py-4">
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h2 class="card-title mb-4">My Attendance</h2>
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">My Attendance</h1>
+            <p class="mb-0 text-muted">Showing records from @fromDate.ToString("dd MMM yyyy") to @toDate.ToString("dd MMM yyyy")</p>
+        </div>
+        <form method="get" class="d-flex gap-3">
+            <div class="input-group" style="width: 250px;">
+                <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                <input type="date" class="form-control" name="fromDate" value="@fromDate.ToString("yyyy-MM-dd")">
+            </div>
+            <div class="input-group" style="width: 250px;">
+                <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                <input type="date" class="form-control" name="toDate" value="@toDate.ToString("yyyy-MM-dd")">
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-filter me-1"></i> Apply
+            </button>
+        </form>
+    </div>
 
-            <form method="get" class="mb-4">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label for="fromDate" class="form-label">From Date</label>
-                        <input type="date" class="form-control" name="fromDate" value="@ViewBag.FromDate?.ToString("yyyy-MM-dd")" />
-                    </div>
-                    <div class="col-md-3">
-                        <label for="toDate" class="form-label">To Date</label>
-                        <input type="date" class="form-control" name="toDate" value="@ViewBag.ToDate?.ToString("yyyy-MM-dd")" />
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">Filter</button>
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Days
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.Summary.TotalDays</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar fa-2x text-gray-300"></i>
+                        </div>
                     </div>
                 </div>
-            </form>
+            </div>
+        </div>
 
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Present Days
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.Summary.PresentDays</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Leave Days
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.Summary.LeaveDays</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-umbrella-beach fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Avg. Working Hours
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.Summary.AverageWorkingHours.ToString("0.00")</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Daily Attendance Records</h6>
+            <div>
+                <button class="btn btn-sm btn-outline-primary" id="printBtn">
+                    <i class="fas fa-print me-1"></i> Print
+                </button>
+                <button class="btn btn-sm btn-outline-success" id="exportBtn">
+                    <i class="fas fa-file-excel me-1"></i> Export
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered table-hover align-middle">
-                    <thead class="table-light">
+                <table class="table table-bordered table-hover" id="attendanceTable" width="100%" cellspacing="0">
+                    <thead class="thead-light">
                         <tr>
-                            <th scope="col">Date</th>
-                            <th scope="col">Check In</th>
-                            <th scope="col">Check Out</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Working Hours</th>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Working Hours</th>
+                            <th>Status</th>
+                            <th>Details</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in Model)
+                        @foreach (var item in Model.DailyAttendance)
                         {
                             <tr>
-                                <td>@item.CheckIn.ToShortDateString()</td>
-                                <td>@item.CheckIn.ToShortTimeString()</td>
-                                <td>@(item.CheckOut?.ToShortTimeString() ?? "N/A")</td>
+                                <td>@item.Date.ToString("dd MMM yyyy")</td>
+                                <td>@item.Day</td>
+                                <td>@(item.CheckIn?.ToString("hh:mm tt") ?? "-")</td>
+                                <td>@(item.CheckOut?.ToString("hh:mm tt") ?? "-")</td>
+                                <td>@(item.WorkingHoursDisplay ?? "-")</td>
                                 <td>
-                                    <span class="badge bg-@GetStatusBadgeClass(item.Status.ToString())">
+                                    <span class="badge @GetStatusBadgeClass(item.Status)">
                                         @item.Status
                                     </span>
                                 </td>
-                                <td>
-                                    @if (item.CheckOut.HasValue)
+                                <td class="text-center">
+                                    @if (!string.IsNullOrEmpty(item.StatusReason))
                                     {
-                                        @((item.CheckOut.Value - item.CheckIn).ToString(@"hh\:mm"))
-                                    }
-                                    else
-                                    {
-                                        @:N/A
+                                        <button class="btn btn-sm btn-outline-info details-btn"
+                                                data-reason="@item.StatusReason"
+                                                data-toggle="tooltip"
+                                                title="View details">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
                                     }
                                 </td>
                             </tr>
@@ -74,3 +163,123 @@
         </div>
     </div>
 </div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailsModalLabel">Attendance Details</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="detailsModalBody">
+                <!-- Details will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .card {
+            border-radius: 0.5rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+
+        .table thead th {
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            vertical-align: middle;
+        }
+
+        .badge {
+            font-size: 0.8em;
+            font-weight: 500;
+            padding: 0.35em 0.65em;
+        }
+
+        .border-left-primary {
+            border-left: 0.25rem solid #4e73df !important;
+        }
+
+        .border-left-success {
+            border-left: 0.25rem solid #1cc88a !important;
+        }
+
+        .border-left-warning {
+            border-left: 0.25rem solid #f6c23e !important;
+        }
+
+        .border-left-info {
+            border-left: 0.25rem solid #36b9cc !important;
+        }
+
+        .details-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+    </style>
+}
+
+@section Scripts {
+<script>
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-toggle="tooltip"]').tooltip();
+
+            // Details button click handler
+            $('.details-btn').click(function() {
+                const reason = $(this).data('reason');
+                $('#detailsModalBody').text(reason);
+                $('#detailsModal').modal('show');
+            });
+
+            // Print button click handler
+            $('#printBtn').click(function() {
+                window.print();
+            });
+
+            // Export button click handler (placeholder - implement actual export logic)
+            $('#exportBtn').click(function() {
+                alert('Export functionality will be implemented here');
+                // In a real implementation, you would:
+                // 1. Make an AJAX call to an export endpoint
+                // 2. Or redirect to an export URL with the current filters
+            });
+
+            // Initialize DataTable
+            $('#attendanceTable').DataTable({
+                order: [[0, 'desc']],
+                dom: '<"top"f>rt<"bottom"lip><"clear">',
+                responsive: true,
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search records...",
+                }
+            });
+        });
+
+    @functions {
+            string GetStatusBadgeClass(string status)
+            {
+                    return status?.ToLower() switch
+                    {
+                            "present" => "bg-success",
+                            "late" => "bg-warning",
+                            "absent" => "bg-danger",
+                            "holiday" => "bg-info",
+                            "weekend" => "bg-primary",
+                            "leave" => "bg-secondary",
+                            "halfday" => "bg-purple",
+                            _ => "bg-secondary"
+                    };
+            }
+    }
+</script>
+}

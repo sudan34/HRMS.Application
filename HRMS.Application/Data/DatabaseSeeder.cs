@@ -39,8 +39,8 @@ namespace HRMS.Application.Data
             {
                 // Optionally seed default departments if none exist
                 context.Departments.Add(new Department { Name = "Administration", Description = "Administration" });
-                context.Departments.Add(new Department { Name = "Development Team A",Description = "Development A" });
-                context.Departments.Add(new Department { Name = "Development Team B" , Description = "Development B" });
+                context.Departments.Add(new Department { Name = "Development Team A", Description = "Development A" });
+                context.Departments.Add(new Department { Name = "Development Team B", Description = "Development B" });
                 await context.SaveChangesAsync();
             }
 
@@ -49,23 +49,25 @@ namespace HRMS.Application.Data
 
             foreach (var dept in departments)
             {
+                int MapToSqlWeekday(DayOfWeek day) => ((int)day + 1); // Sunday=0 → 1, Monday=1 → 2, ..., Saturday=6 → 7
+
                 var weekend = new DepartmentWeekend
                 {
                     DepartmentId = dept.Id,
                     WeekendType = dept.Name.Contains("Development") ? "Custom" : "Single",
-                    WeekendDay1 = DayOfWeek.Saturday
+                    WeekendDay1 = (DayOfWeek)MapToSqlWeekday(DayOfWeek.Saturday)  // Default: Saturday
                 };
 
                 if (dept.Name.Contains("Team A"))
                 {
-                    weekend.WeekendDay1 = DayOfWeek.Friday;
-                    weekend.WeekendDay2 = DayOfWeek.Saturday;
+                    weekend.WeekendDay1 = (DayOfWeek)MapToSqlWeekday(DayOfWeek.Friday);
+                    weekend.WeekendDay2 = (DayOfWeek)MapToSqlWeekday(DayOfWeek.Saturday);
                     weekend.WeekendType = "Friday-Saturday";
                 }
                 else if (dept.Name.Contains("Team B"))
                 {
-                    weekend.WeekendDay1 = DayOfWeek.Saturday;
-                    weekend.WeekendDay2 = DayOfWeek.Sunday;
+                    weekend.WeekendDay1 = (DayOfWeek)MapToSqlWeekday(DayOfWeek.Saturday);
+                    weekend.WeekendDay2 = (DayOfWeek)MapToSqlWeekday(DayOfWeek.Sunday);
                     weekend.WeekendType = "Saturday-Sunday";
                 }
 

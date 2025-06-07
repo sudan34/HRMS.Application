@@ -1,59 +1,40 @@
-﻿using HRMS.Application.Data;
+﻿using AutoMapper;
+using HRMS.Application.Data;
 using HRMS.Application.Models;
+using HRMS.Application.Repository;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore; // Add this for Include()
-using System;
-using System.Linq; // Add this for LINQ operations
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
-// Change the namespace from ViewComponent to your application's namespace
-namespace HRMS.Application.ViewComponents // Changed from "ViewComponent"
+namespace HRMS.Application.ViewComponents
 {
-    public class AttendanceReportViewComponent : ViewComponent // Fully qualified
+    public class AttendanceReportViewComponent : ViewComponent
     {
+        private readonly IAttendanceRepository _attendanceRepo;
         private readonly ApplicationDbContext _context;
-
-        public AttendanceReportViewComponent(ApplicationDbContext context)
+        private readonly IMapper _mapper;
+        public AttendanceReportViewComponent(
+        IAttendanceRepository attendanceRepo,
+        ApplicationDbContext context,
+        IMapper mapper)
         {
+            _attendanceRepo = attendanceRepo;
             _context = context;
+            _mapper = mapper;
         }
-
         public async Task<IViewComponentResult> InvokeAsync(DateTime fromDate, DateTime toDate)
         {
-            var reportData = _context.Employees
-                .Include(e => e.Attendances)
-                .Include(e => e.Department)
-                .Select(e => new
-                {
-                    e.EmployeeId,
-                    e.FirstName,
-                    e.LastName,
-                    e.Email,
-                    e.Designation,
-                    Department = e.Department.Name,
-                    Attendances = e.Attendances.Where(a =>
-                        a.CheckIn.Date >= fromDate.Date &&
-                        a.CheckIn.Date <= toDate.Date)
-                })
-                .AsEnumerable() // Switch to client evaluation
-                .Select(e => new AttendanceReportViewModel
-                {
-                    EmployeeId = e.EmployeeId,
-                    FullName = $"{e.FirstName} {e.LastName}",
-                    Email = e.Email,
-                    Department = e.Department,
-                    TotalPresent = e.Attendances.Count(a => a.Status == AttendanceStatus.Present),
-                    TotalLate = e.Attendances.Count(a => a.Status == AttendanceStatus.Late),
-                    TotalAbsent = (toDate.Date - fromDate.Date).Days + 1 - e.Attendances.Count()
-                })
-                .OrderBy(e => e.FullName)
-                .ToList(); // Use synchronous ToList() instead of ToListAsync()
+            var reportData = await _attendanceRepo.GetAttendanceSummaryAsync(fromDate, toDate);
 
-            // For ViewComponents, use ViewData instead of ViewBag
+            // Map from DTO to ViewModel
+            var viewModel = _mapper.Map<List<AttendanceReportViewModel>>(reportData);
+
+            var activeEmployeesCount = await _context.Employees.CountAsync(e => e.IsActive);
+
             ViewData["FromDate"] = fromDate;
             ViewData["ToDate"] = toDate;
+            ViewData["TotalEmployees"] = activeEmployeesCount;
 
-            return View(reportData);
+            return View(viewModel);
         }
     }
 }

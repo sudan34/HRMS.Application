@@ -1,0 +1,293 @@
+﻿using Dapper;
+using HRMS.Application.DTOs;
+using HRMS.Application.Models;
+using System.Data;
+
+namespace HRMS.Application.Repository
+{
+    public class AttendanceRepository : IAttendanceRepository
+    {
+        private readonly IDbConnection _db;
+
+        public AttendanceRepository(IDbConnection db)
+        {
+            _db = db;
+        }
+
+        public async Task<List<DepartmentWorkingHours>> GetDepartmentWorkingHoursAsync()
+        {
+            const string sql = "SELECT * FROM DepartmentWorkingHours";
+            return (await _db.QueryAsync<DepartmentWorkingHours>(sql)).ToList();
+        }
+
+        public async Task<List<AttendanceReportDto>> GetAttendanceSummaryAsync(DateTime fromDate, DateTime toDate)
+        {
+            const string sql = @"
+        -- Get all active employees with their departments
+        WITH EmployeeDept AS (
+            SELECT 
+                e.Id,
+                e.EmployeeId,
+                e.FirstName,
+                e.LastName,
+                e.Designation,
+                d.Id AS DepartmentId,
+                d.Name AS Department,
+                dw.StartTime,
+                dw.EndTime,
+                dw.LateThreshold,
+                dw.FridayStartTime,
+                dw.FridayEndTime,
+                dw.FridayLateThreshold
+            FROM Employees e
+            JOIN Departments d ON e.DepartmentId = d.Id
+            LEFT JOIN DepartmentWorkingHours dw ON d.Id = dw.DepartmentId
+            WHERE e.IsActive = 1
+        ),
+
+        -- Generate date range
+        DateRange AS (
+            SELECT DATEADD(DAY, number, @FromDate) AS Date
+            FROM master.dbo.spt_values
+            WHERE type = 'P' 
+            AND number <= DATEDIFF(DAY, @FromDate, @ToDate)
+        ),
+
+        -- Get department weekend info (modified to match actual schema)
+        DeptWeekends AS (
+            SELECT 
+                DepartmentId,
+                CAST(WeekendDay1 AS INT) AS WeekendDay1,
+                CASE WHEN WeekendDay2 IS NOT NULL THEN CAST(WeekendDay2 AS INT) ELSE -1 END AS WeekendDay2
+            FROM DepartmentWeekends
+        ),
+
+        -- Get active holidays
+        ActiveHolidays AS (
+            SELECT Date 
+            FROM Holidays
+            WHERE Date BETWEEN @FromDate AND @ToDate
+            AND IsActive = 1
+        ),
+
+        -- Get approved leaves
+        ApprovedLeaves AS (
+            SELECT 
+                EmployeeId,
+                StartDate,
+                EndDate
+            FROM Leaves
+            WHERE Status = 1 -- Approved
+            AND (
+                (StartDate <= @ToDate AND EndDate >= @FromDate) OR
+                (StartDate BETWEEN @FromDate AND @ToDate) OR
+                (EndDate BETWEEN @FromDate AND @ToDate)
+            )
+        ),
+
+        -- Calculate daily status for each employee
+        DailyStatus AS (
+            SELECT
+                ed.EmployeeId,
+                ed.FirstName + ' ' + ed.LastName AS FullName,
+                ed.Department,
+                ed.Designation,
+                dr.Date,
+                CASE
+                    WHEN ah.Date IS NOT NULL THEN 'Holiday'
+                    WHEN EXISTS (
+                        SELECT 1 FROM DeptWeekends dw 
+                        WHERE dw.DepartmentId = ed.DepartmentId
+                        AND (dw.WeekendDay1 = DATEPART(WEEKDAY, dr.Date) OR 
+                             dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date))
+                    ) THEN 'Weekend'
+                    WHEN EXISTS (
+                        SELECT 1 FROM ApprovedLeaves al 
+                        WHERE al.EmployeeId = ed.Id
+                        AND dr.Date BETWEEN al.StartDate AND al.EndDate
+                    ) THEN 'Leave'
+                    WHEN EXISTS (
+                        SELECT 1 FROM Attendances a 
+                        WHERE a.EmployeeId = ed.EmployeeId
+                        AND CONVERT(DATE, a.CheckIn) = dr.Date
+                    ) THEN 'Present'
+                    ELSE 'Absent'
+                END AS Status
+            FROM EmployeeDept ed
+            CROSS JOIN DateRange dr
+            LEFT JOIN ActiveHolidays ah ON dr.Date = ah.Date
+        )
+
+        -- Final aggregation
+        SELECT
+            EmployeeId,
+            FullName,
+            Department,
+            Designation,
+            SUM(CASE WHEN Status = 'Present' THEN 1 ELSE 0 END) AS TotalPresent,
+            SUM(CASE WHEN Status = 'Leave' THEN 1 ELSE 0 END) AS TotalLeave,
+            SUM(CASE WHEN Status = 'Holiday' THEN 1 ELSE 0 END) AS TotalHoliday,
+            SUM(CASE WHEN Status = 'Weekend' THEN 1 ELSE 0 END) AS TotalWeekend,
+            SUM(CASE WHEN Status = 'Absent' THEN 1 ELSE 0 END) AS TotalAbsent
+        FROM DailyStatus
+        GROUP BY EmployeeId, FullName, Department, Designation
+        ORDER BY FullName";
+
+            return (await _db.QueryAsync<AttendanceReportDto>(sql, new { FromDate = fromDate, ToDate = toDate })).ToList();
+        }
+
+        public async Task<List<DailyAttendanceDto>> GetEmployeeAttendanceAsync(string employeeId, DateTime fromDate, DateTime toDate)
+        {
+            const string sql = @"
+            -- Get employee details with working hours
+            WITH EmployeeInfo AS (
+                SELECT 
+                    e.Id,
+                    e.EmployeeId,
+                    e.FirstName,
+                    e.LastName,
+                    e.Designation,
+                    d.Id AS DepartmentId,
+                    d.Name AS Department,
+                    dw.StartTime,
+                    dw.EndTime,
+                    dw.LateThreshold,
+                    dw.FridayStartTime,
+                    dw.FridayEndTime,
+                    dw.FridayLateThreshold
+                FROM Employees e
+                JOIN Departments d ON e.DepartmentId = d.Id
+                LEFT JOIN DepartmentWorkingHours dw ON d.Id = dw.DepartmentId
+                WHERE e.EmployeeId = @EmployeeId
+                AND e.IsActive = 1
+            ),
+
+            DateRange AS (
+                SELECT DATEADD(DAY, number, @FromDate) AS Date
+                FROM master.dbo.spt_values
+                WHERE type = 'P' 
+                AND number <= DATEDIFF(DAY, @FromDate, @ToDate)
+            ),
+
+            -- Changed CTE name to be more distinct from table name
+            EmpDeptWeekends AS (
+                SELECT 
+                    WeekendDay1,
+                    ISNULL(WeekendDay2, -1) AS WeekendDay2
+                FROM DepartmentWeekends dw
+                WHERE EXISTS (
+                    SELECT 1 FROM EmployeeInfo ei 
+                    WHERE dw.DepartmentId = ei.DepartmentId
+                )
+            ),
+
+            EmpHolidays AS (
+                SELECT Date, Name 
+                FROM Holidays
+                WHERE Date BETWEEN @FromDate AND @ToDate
+                AND IsActive = 1
+            ),
+
+            ApprovedLeaves AS (
+                SELECT 
+                    StartDate,
+                    EndDate,
+                    Type AS LeaveType
+                FROM Leaves
+                WHERE EmployeeId = (SELECT Id FROM EmployeeInfo)
+                AND Status = 1 -- Approved
+                AND (
+                    (StartDate <= @ToDate AND EndDate >= @FromDate) OR
+                    (StartDate BETWEEN @FromDate AND @ToDate) OR
+                    (EndDate BETWEEN @FromDate AND @ToDate)
+                )
+            ),
+
+            EmployeeAttendance AS (
+                SELECT 
+                    CONVERT(DATE, CheckIn) AS Date,
+                    CheckIn,
+                    CheckOut,
+                    DATEDIFF(MINUTE, CheckIn, CheckOut) / 60.0 AS WorkingHoursDecimal
+                FROM Attendances
+                WHERE EmployeeId = @EmployeeId
+                AND CheckIn BETWEEN @FromDate AND DATEADD(DAY, 1, @ToDate)
+            ),
+
+            DailyStatus AS (
+                SELECT
+                    dr.Date,
+                    DATENAME(WEEKDAY, dr.Date) AS DayName,
+                    DATEPART(WEEKDAY, dr.Date) AS DayOfWeek,
+                    h.Name AS HolidayName,
+                    al.LeaveType,
+                    ea.CheckIn,
+                    ea.CheckOut,
+                    ea.WorkingHoursDecimal,
+                    CASE
+                        WHEN h.Date IS NOT NULL THEN 'Holiday'
+                        WHEN EXISTS (
+                            SELECT 1 FROM EmpDeptWeekends dw 
+                            WHERE dw.WeekendDay1 = DATEPART(WEEKDAY, dr.Date) OR 
+                                  dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date)
+                        ) THEN 'Weekend'
+                        WHEN al.StartDate IS NOT NULL THEN 'Leave'
+                        WHEN ea.CheckIn IS NOT NULL THEN
+                            CASE
+                                WHEN DATEPART(WEEKDAY, dr.Date) = 6 THEN -- Friday
+                                    CASE
+                                        WHEN CONVERT(TIME, ea.CheckIn) > (SELECT FridayLateThreshold FROM EmployeeInfo) THEN 'Late'
+                                        WHEN ea.WorkingHoursDecimal < 4 THEN 'HalfDay'
+                                        ELSE 'Present'
+                                    END
+                                ELSE -- Other weekdays
+                                    CASE
+                                        WHEN CONVERT(TIME, ea.CheckIn) > (SELECT LateThreshold FROM EmployeeInfo) THEN 'Late'
+                                        WHEN ea.WorkingHoursDecimal < 8 THEN 'HalfDay'
+                                        ELSE 'Present'
+                                    END
+                            END
+                        ELSE 'Absent'
+                    END AS Status,
+                    CASE
+                        WHEN h.Date IS NOT NULL THEN h.Name
+                        WHEN EXISTS (
+                            SELECT 1 FROM EmpDeptWeekends dw 
+                            WHERE dw.WeekendDay1 = DATEPART(WEEKDAY, dr.Date) OR 
+                                  dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date)
+                        ) THEN N'Weekend'
+                        WHEN al.StartDate IS NOT NULL THEN CAST(al.LeaveType AS NVARCHAR(100))
+                        ELSE NULL
+                    END AS StatusReason
+                FROM DateRange dr
+                LEFT JOIN EmpHolidays h ON dr.Date = h.Date
+                LEFT JOIN ApprovedLeaves al ON dr.Date BETWEEN al.StartDate AND al.EndDate
+                LEFT JOIN EmployeeAttendance ea ON dr.Date = ea.Date
+            )
+
+            SELECT 
+                Date,
+                DayName AS Day,
+                CheckIn,
+                CheckOut,
+                WorkingHoursDecimal AS WorkingHours,
+                CASE
+                    WHEN CheckOut IS NOT NULL THEN 
+                        CONVERT(VARCHAR, DATEDIFF(HOUR, CheckIn, CheckOut)) + 'h ' + 
+                        CONVERT(VARCHAR, DATEDIFF(MINUTE, CheckIn, CheckOut) % 60) + 'm'
+                    ELSE NULL
+                END AS WorkingHoursDisplay,
+                Status,
+                StatusReason
+            FROM DailyStatus
+            ORDER BY Date";
+
+            return (await _db.QueryAsync<DailyAttendanceDto>(sql, new
+            {
+                EmployeeId = employeeId,
+                FromDate = fromDate,
+                ToDate = toDate
+            })).ToList();
+        }
+    }
+}

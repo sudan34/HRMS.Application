@@ -1,5 +1,6 @@
 ﻿using HRMS.Application.Data;
 using HRMS.Application.Models;
+using HRMS.Application.Repository;
 using HRMS.Application.Services;
 using HRMS.Application.ViewModel;
 using Microsoft.AspNetCore.Authorization;
@@ -15,12 +16,14 @@ namespace HRMS.Application.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IZkDeviceService _zkDeviceService;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IAttendanceRepository _attendanceRepo;
 
-        public AttendanceController(ApplicationDbContext context, IZkDeviceService zkDeviceService, UserManager<ApplicationUser> userManager)
+        public AttendanceController(ApplicationDbContext context, IZkDeviceService zkDeviceService, UserManager<ApplicationUser> userManager, IAttendanceRepository attendanceRepo)
         {
             _context = context;
             _zkDeviceService = zkDeviceService;
             _userManager = userManager;
+            _attendanceRepo = attendanceRepo;
         }
 
         public async Task<IActionResult> Index(DateTime? fromDate, DateTime? toDate)
@@ -88,7 +91,7 @@ namespace HRMS.Application.Controllers
 
             return View();
         }
-       
+
         [HttpGet]
         public async Task<IActionResult> EmployeeReport(string employeeId, DateTime? fromDate, DateTime? toDate)
         {
@@ -109,13 +112,9 @@ namespace HRMS.Application.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Get employee with attendance records for the date range
+            // Get employee basic info
             var employee = await _context.Employees
-                 .Where(e => e.IsActive)
                 .Include(e => e.Department)
-                .Include(e => e.Attendances
-                    .Where(a => a.CheckIn.Date >= defaultFromDate.Date &&
-                               a.CheckIn.Date <= defaultToDate.Date))
                 .FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
 
             if (employee == null)
@@ -124,14 +123,21 @@ namespace HRMS.Application.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Prepare view data
+            // Get attendance details
+            var dailyAttendance = await _attendanceRepo.GetEmployeeAttendanceAsync(employeeId, defaultFromDate, defaultToDate);
+
             ViewBag.EmployeeId = employeeId;
             ViewBag.FromDate = defaultFromDate;
             ViewBag.ToDate = defaultToDate;
 
-            return View(employee);
+            return View(new EmployeeAttendanceViewModel
+            {
+                Employee = employee,
+                DailyAttendance = dailyAttendance,
+                FromDate = defaultFromDate,
+                ToDate = defaultToDate
+            });
         }
-
         [Authorize(Roles = "Employee")]
         public async Task<IActionResult> MyAttendance(DateTime? fromDate, DateTime? toDate)
         {
@@ -152,41 +158,59 @@ namespace HRMS.Application.Controllers
 
             var enrollmentId = employee.EmployeeId;
 
+            // Set default date range if not provided
             var defaultFromDate = fromDate ?? DateTime.Today.AddDays(-7);
             var defaultToDate = toDate ?? DateTime.Today;
 
-            var attendances = await _context.Attendances
-                .Include(a => a.Employee)
-                .Where(a => a.EmployeeId == enrollmentId &&
-                   a.CheckIn.Date >= defaultFromDate.Date &&
-                   a.CheckIn.Date <= defaultToDate.Date &&
-                   a.Employee.IsActive)
-                .OrderByDescending(a => a.CheckIn)
-                .ToListAsync();
+            // Get attendance summary using repository
+            var attendance = await _attendanceRepo.GetEmployeeAttendanceAsync(
+                enrollmentId,
+                defaultFromDate,
+                defaultToDate
+            );
+
+            // Calculate summary statistics
+            var summary = new MyAttendanceSummary
+            {
+                TotalDays = (defaultToDate - defaultFromDate).Days + 1,
+                PresentDays = attendance.Count(a => a.Status == "Present" || a.Status == "Late"),
+                LeaveDays = attendance.Count(a => a.Status == "Leave"),
+                AbsentDays = attendance.Count(a => a.Status == "Absent"),
+                HolidayDays = attendance.Count(a => a.Status == "Holiday"),
+                WeekendDays = attendance.Count(a => a.Status == "Weekend"),
+                AverageWorkingHours = (double)(attendance
+                    .Where(a => a.WorkingHours.HasValue)
+                    .Average(a => a.WorkingHours) ?? 0)
+            };
 
             ViewBag.FromDate = defaultFromDate;
             ViewBag.ToDate = defaultToDate;
+            ViewBag.EmployeeName = employee.FullName;
 
-            return View(attendances);
+            return View(new MyAttendanceViewModel
+            {
+                DailyAttendance = attendance,
+                Summary = summary
+            });
         }
 
-        [Authorize(Roles = "HR")]
-        [HttpPost]
-        public async Task<IActionResult> UpdateAttendance(int id, DateTime checkIn, DateTime? checkOut, AttendanceStatus status)
-        {
-            var attendance = await _context.Attendances.FindAsync(id);
-            if (attendance == null)
-                return NotFound();
+        //[Authorize(Roles = "HR")]
+        //[HttpPost]
+        //public async Task<IActionResult> UpdateAttendance(int id, DateTime checkIn, DateTime? checkOut, AttendanceStatus status)
+        //{
+        //    var attendance = await _context.Attendances.FindAsync(id);
+        //    if (attendance == null)
+        //        return NotFound();
 
-            attendance.CheckIn = checkIn;
-            attendance.CheckOut = checkOut;
-            attendance.Status = status;
+        //    attendance.CheckIn = checkIn;
+        //    attendance.CheckOut = checkOut;
+        //    attendance.Status = status;
 
-            _context.Update(attendance);
-            await _context.SaveChangesAsync();
+        //    _context.Update(attendance);
+        //    await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Index));
-        }
+        //    return RedirectToAction(nameof(Index));
+        //}
 
         [HttpGet]
         public async Task<IActionResult> GetAttendanceForEdit(int id)
@@ -207,7 +231,8 @@ namespace HRMS.Application.Controllers
                 EmployeeName = $"{attendance.Employee.FirstName} {attendance.Employee.LastName}",
                 CheckIn = attendance.CheckIn,
                 CheckOut = attendance.CheckOut,
-                Status = attendance.Status
+                Status = attendance.Status,
+                Remarks = attendance.Remarks
             };
 
             return PartialView("_EditAttendance", model);
@@ -223,8 +248,10 @@ namespace HRMS.Application.Controllers
                 {
                     return PartialView("_EditAttendance", model);
                 }
+                var allErrors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                TempData["ErrorMessage"] = string.Join("<br/>", allErrors);
 
-                TempData["ErrorMessage"] = "Invalid data provided.";
+                // TempData["ErrorMessage"] = "Invalid data provided.";
                 return RedirectToAction("Index");
             }
 
@@ -243,21 +270,27 @@ namespace HRMS.Application.Controllers
                 return RedirectToAction("Index");
             }
 
+            // Get current user
+            var currentUser = await _userManager.GetUserAsync(User);
+
             attendance.CheckIn = model.CheckIn;
             attendance.CheckOut = model.CheckOut;
             attendance.Status = model.Status;
+            attendance.UpdatedOn = DateTime.Now;
+            attendance.UpdatedBy = currentUser?.UserName;
+            attendance.Remarks = model.Remarks;
 
             try
             {
                 _context.Update(attendance);
                 await _context.SaveChangesAsync();
-
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
                     return Json(new { success = true });
                 }
 
                 TempData["SuccessMessage"] = "Attendance record updated successfully.";
+
             }
             catch (Exception ex)
             {
@@ -274,6 +307,7 @@ namespace HRMS.Application.Controllers
                 fromDate = ViewBag.FromDate ?? model.CheckIn.Date,
                 toDate = ViewBag.ToDate ?? model.CheckIn.Date
             });
+
         }
     }
 }

@@ -25,23 +25,24 @@ namespace HRMS.Application.Services
             _attendanceStatusService = attendanceStatusService;
             _zkDevice = new CZKEMClass();
         }
-                
-        public async Task<bool> TestConnectionAsync()
+
+        public Task<bool> TestConnectionAsync()
         {
             try
             {
-                string ipAddress = _config["ZkDevice:IpAddress"];
-                int port = int.Parse(_config["ZkDevice:Port"]);
+                string ipAddress = _config["ZkDevice:IpAddress"]!;
+                int port = int.Parse(_config["ZkDevice:Port"]!);
                 _isConnected = _zkDevice.Connect_Net(ipAddress, port);
-                return _isConnected;
+                return Task.FromResult(_isConnected);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ZK Device connection error");
                 _isConnected = false;
-                return false;
+                return Task.FromResult(false);
             }
         }
+
 
         public async Task SyncAttendanceDataAsync()
         {
@@ -307,11 +308,15 @@ namespace HRMS.Application.Services
         public void Dispose()
         {
             Disconnect();
-            if (_zkDevice != null)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 Marshal.ReleaseComObject(_zkDevice);
-                _zkDevice = null;
             }
+            //if (_zkDevice != null)
+            //{
+            //    Marshal.ReleaseComObject(_zkDevice);
+            //    _zkDevice = null;
+            //}
             GC.SuppressFinalize(this);
         }
                

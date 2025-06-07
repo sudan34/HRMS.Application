@@ -24,11 +24,10 @@ namespace HRMS.Application.Models
         [Required]
         public LeaveType Type { get; set; }
 
-        [Required]
-        public LeaveStatus Status { get; set; } = LeaveStatus.Pending;
-
         [MaxLength(500)]
         public string Reason { get; set; }
+        [Required]
+        public LeaveStatus Status { get; set; } = LeaveStatus.Pending;
 
         public DateTime CreatedOn { get; set; } = DateTime.Now;
         public string CreatedBy { get; set; }

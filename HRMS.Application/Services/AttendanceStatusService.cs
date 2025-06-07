@@ -68,17 +68,17 @@ namespace HRMS.Application.Services
                 return AttendanceStatus.Weekend;
             }
 
-            // Check holidays
-            if (await _holidayService.IsHoliday(date.Date))
-            {
-                return AttendanceStatus.Holiday;
-            }
+            //// Check holidays
+            //if (await _holidayService.IsHoliday(date.Date))
+            //{
+            //    return AttendanceStatus.Holiday;
+            //}
 
-            // Check leave status
-            if (await IsEmployeeOnLeave(employee, date.Date))
-            {
-                return AttendanceStatus.OnLeave;
-            }
+            //// Check leave status
+            //if (await IsEmployeeOnLeave(employee, date.Date))
+            //{
+            //    return AttendanceStatus.OnLeave;
+            //}
 
             return null;
         }
@@ -122,14 +122,14 @@ namespace HRMS.Application.Services
                   (weekend.WeekendDay2.HasValue && date.DayOfWeek == weekend.WeekendDay2.Value);
         }
 
-        private async Task<bool> IsEmployeeOnLeave(Employee employee, DateTime date)
-        {
-            return await _context.Leaves.AnyAsync(l =>
-                l.EmployeeId == employee.Id &&
-                l.StartDate <= date &&
-                l.EndDate >= date &&
-                l.Status == LeaveStatus.Approved);
-        }
+        //private async Task<bool> IsEmployeeOnLeave(Employee employee, DateTime date)
+        //{
+        //    return await _context.Leaves.AnyAsync(l =>
+        //        l.EmployeeId == employee.Id &&
+        //        l.StartDate <= date &&
+        //        l.EndDate >= date &&
+        //        l.Status == LeaveStatus.Approved);
+        //}
 
         private record WorkingHoursInfo
         {
