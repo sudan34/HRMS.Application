@@ -25,7 +25,7 @@ namespace HRMS.Application.Controllers
             _userManager = userManager;
             _attendanceRepo = attendanceRepo;
         }
-
+        [Authorize(Roles = "HR,SuperAdmin")]
         public async Task<IActionResult> Index(DateTime? fromDate, DateTime? toDate)
         {
             var defaultFromDate = fromDate ?? DateTime.Today.AddDays(-7);
@@ -44,7 +44,8 @@ namespace HRMS.Application.Controllers
 
             return View(attendances);
         }
-
+       
+        [Authorize(Roles = "HR,SuperAdmin")]
         [HttpPost]
         public async Task<IActionResult> SyncWithDevice()
         {
@@ -92,6 +93,7 @@ namespace HRMS.Application.Controllers
             return View();
         }
 
+        [Authorize(Roles = "HR,SuperAdmin")]
         [HttpGet]
         public async Task<IActionResult> EmployeeReport(string employeeId, DateTime? fromDate, DateTime? toDate)
         {
@@ -194,24 +196,7 @@ namespace HRMS.Application.Controllers
             });
         }
 
-        //[Authorize(Roles = "HR")]
-        //[HttpPost]
-        //public async Task<IActionResult> UpdateAttendance(int id, DateTime checkIn, DateTime? checkOut, AttendanceStatus status)
-        //{
-        //    var attendance = await _context.Attendances.FindAsync(id);
-        //    if (attendance == null)
-        //        return NotFound();
-
-        //    attendance.CheckIn = checkIn;
-        //    attendance.CheckOut = checkOut;
-        //    attendance.Status = status;
-
-        //    _context.Update(attendance);
-        //    await _context.SaveChangesAsync();
-
-        //    return RedirectToAction(nameof(Index));
-        //}
-
+        [Authorize(Roles = "HR,SuperAdmin")]
         [HttpGet]
         public async Task<IActionResult> GetAttendanceForEdit(int id)
         {
@@ -238,6 +223,7 @@ namespace HRMS.Application.Controllers
             return PartialView("_EditAttendance", model);
         }
 
+        [Authorize(Roles = "HR,SuperAdmin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(EditAttendanceViewModel model)

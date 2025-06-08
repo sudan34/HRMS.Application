@@ -20,120 +20,182 @@ namespace HRMS.Application.Repository
             return (await _db.QueryAsync<DepartmentWorkingHours>(sql)).ToList();
         }
 
-        public async Task<List<AttendanceReportDto>> GetAttendanceSummaryAsync(DateTime fromDate, DateTime toDate)
+        public async Task<List<AttendanceReportDto>> GetAttendanceSummaryAsync(DateTime fromDate, DateTime toDate, int batchSizeDays = 30)
+        {
+            var results = new List<AttendanceReportDto>();
+
+            DateTime currentStart = fromDate;
+            while (currentStart <= toDate)
+            {
+                DateTime currentEnd = currentStart.AddDays(batchSizeDays - 1);
+                if (currentEnd > toDate) currentEnd = toDate;
+
+                var batchResults = await GetAttendanceBatchAsync(currentStart, currentEnd);
+                results.AddRange(batchResults);
+
+                currentStart = currentEnd.AddDays(1);
+            }
+
+            // Merge results for employees who appear in multiple batches
+            return results.GroupBy(r => r.EmployeeId)
+                          .Select(g => new AttendanceReportDto
+                          {
+                              EmployeeId = g.Key,
+                              FullName = g.First().FullName,
+                              Department = g.First().Department,
+                              Designation = g.First().Designation,
+                              TotalPresent = g.Sum(x => x.TotalPresent),
+                              TotalLeave = g.Sum(x => x.TotalLeave),
+                              TotalHoliday = g.Sum(x => x.TotalHoliday),
+                              TotalWeekend = g.Sum(x => x.TotalWeekend),
+                              TotalAbsent = g.Sum(x => x.TotalAbsent)
+                          })
+                          .OrderBy(r => r.FullName)
+                          .ToList();
+        }
+
+        private async Task<List<AttendanceReportDto>> GetAttendanceBatchAsync(DateTime fromDate, DateTime toDate)
         {
             const string sql = @"
-        -- Get all active employees with their departments
-        WITH EmployeeDept AS (
-            SELECT 
-                e.Id,
-                e.EmployeeId,
-                e.FirstName,
-                e.LastName,
-                e.Designation,
-                d.Id AS DepartmentId,
-                d.Name AS Department,
-                dw.StartTime,
-                dw.EndTime,
-                dw.LateThreshold,
-                dw.FridayStartTime,
-                dw.FridayEndTime,
-                dw.FridayLateThreshold
-            FROM Employees e
-            JOIN Departments d ON e.DepartmentId = d.Id
-            LEFT JOIN DepartmentWorkingHours dw ON d.Id = dw.DepartmentId
-            WHERE e.IsActive = 1
-        ),
+            -- First filter active employees
+            WITH ActiveEmployees AS (
+                SELECT 
+                    Id,
+                    EmployeeId,
+                    FirstName,
+                    LastName,
+                    Designation,
+                    DepartmentId
+                FROM Employees WITH (NOLOCK)
+                WHERE IsActive = 1
+            ),
 
-        -- Generate date range
-        DateRange AS (
-            SELECT DATEADD(DAY, number, @FromDate) AS Date
-            FROM master.dbo.spt_values
-            WHERE type = 'P' 
-            AND number <= DATEDIFF(DAY, @FromDate, @ToDate)
-        ),
+            -- Then join with other tables
+            EmployeeDept AS (
+                SELECT 
+                    ae.Id,
+                    ae.EmployeeId,
+                    ae.FirstName,
+                    ae.LastName,
+                    ae.Designation,
+                    d.Id AS DepartmentId,
+                    d.Name AS Department,
+                    dw.StartTime,
+                    dw.EndTime,
+                    dw.LateThreshold,
+                    dw.FridayStartTime,
+                    dw.FridayEndTime,
+                    dw.FridayLateThreshold
+                FROM ActiveEmployees ae
+                JOIN Departments d WITH (NOLOCK) ON ae.DepartmentId = d.Id
+                LEFT JOIN DepartmentWorkingHours dw WITH (NOLOCK) ON d.Id = dw.DepartmentId
+            ),
 
-        -- Get department weekend info (modified to match actual schema)
-        DeptWeekends AS (
-            SELECT 
-                DepartmentId,
-                CAST(WeekendDay1 AS INT) AS WeekendDay1,
-                CASE WHEN WeekendDay2 IS NOT NULL THEN CAST(WeekendDay2 AS INT) ELSE -1 END AS WeekendDay2
-            FROM DepartmentWeekends
-        ),
+            -- Efficient date range generation
+            DateRange AS (
+                SELECT DATEADD(DAY, n, @FromDate) AS Date
+                FROM (
+                    SELECT TOP (DATEDIFF(DAY, @FromDate, @ToDate) + 1) 
+                        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) - 1 AS n
+                    FROM sys.objects a WITH (NOLOCK)
+                    CROSS JOIN sys.objects b WITH (NOLOCK)
+                    WHERE DATEDIFF(DAY, @FromDate, @ToDate) < 1000 -- Safety limit
+                ) AS Numbers
+            ),
 
-        -- Get active holidays
-        ActiveHolidays AS (
-            SELECT Date 
-            FROM Holidays
-            WHERE Date BETWEEN @FromDate AND @ToDate
-            AND IsActive = 1
-        ),
+            -- Get department weekend info
+            DeptWeekends AS (
+                SELECT 
+                    DepartmentId,
+                    CAST(WeekendDay1 AS INT) AS WeekendDay1,
+                    CASE WHEN WeekendDay2 IS NOT NULL THEN CAST(WeekendDay2 AS INT) ELSE -1 END AS WeekendDay2
+                FROM DepartmentWeekends WITH (NOLOCK)
+            ),
 
-        -- Get approved leaves
-        ApprovedLeaves AS (
-            SELECT 
-                EmployeeId,
-                StartDate,
-                EndDate
-            FROM Leaves
-            WHERE Status = 1 -- Approved
-            AND (
-                (StartDate <= @ToDate AND EndDate >= @FromDate) OR
-                (StartDate BETWEEN @FromDate AND @ToDate) OR
-                (EndDate BETWEEN @FromDate AND @ToDate)
+            -- Get active holidays just for this date range
+            ActiveHolidays AS (
+                SELECT Date 
+                FROM Holidays WITH (NOLOCK)
+                WHERE Date BETWEEN @FromDate AND @ToDate
+                AND IsActive = 1
+            ),
+
+            -- Get approved leaves that overlap with date range
+            ApprovedLeaves AS (
+                SELECT 
+                    EmployeeId,
+                    StartDate,
+                    EndDate
+                FROM Leaves WITH (NOLOCK)
+                WHERE Status = 1 -- Approved
+                AND StartDate <= @ToDate
+                AND EndDate >= @FromDate
+            ),
+
+            -- Calculate daily status for each employee
+            DailyStatus AS (
+                SELECT
+                    ed.EmployeeId,
+                    ed.FirstName + ' ' + ed.LastName AS FullName,
+                    ed.Department,
+                    ed.Designation,
+                    dr.Date,
+                    CASE
+                        WHEN ah.Date IS NOT NULL THEN 'Holiday'
+                        WHEN EXISTS (
+                            SELECT 1 FROM DeptWeekends dw 
+                            WHERE dw.DepartmentId = ed.DepartmentId
+                            AND (dw.WeekendDay1 = DATEPART(WEEKDAY, dr.Date) OR 
+                                 dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date))
+                        ) THEN 'Weekend'
+                        WHEN EXISTS (
+                            SELECT 1 FROM ApprovedLeaves al 
+                            WHERE al.EmployeeId = ed.Id
+                            AND dr.Date BETWEEN al.StartDate AND al.EndDate
+                        ) THEN 'Leave'
+                        WHEN EXISTS (
+                            SELECT 1 FROM Attendances a WITH (NOLOCK)
+                            WHERE a.EmployeeId = ed.EmployeeId
+                            AND CONVERT(DATE, a.CheckIn) = dr.Date
+                        ) THEN 'Present'
+                        ELSE 'Absent'
+                    END AS Status
+                FROM EmployeeDept ed
+                CROSS JOIN DateRange dr
+                LEFT JOIN ActiveHolidays ah ON dr.Date = ah.Date
+            ),
+
+            -- Pre-aggregate counts before final join
+            DailyCounts AS (
+                SELECT
+                    EmployeeId,
+                    SUM(CASE WHEN Status = 'Present' THEN 1 ELSE 0 END) AS TotalPresent,
+                    SUM(CASE WHEN Status = 'Leave' THEN 1 ELSE 0 END) AS TotalLeave,
+                    SUM(CASE WHEN Status = 'Holiday' THEN 1 ELSE 0 END) AS TotalHoliday,
+                    SUM(CASE WHEN Status = 'Weekend' THEN 1 ELSE 0 END) AS TotalWeekend,
+                    SUM(CASE WHEN Status = 'Absent' THEN 1 ELSE 0 END) AS TotalAbsent
+                FROM DailyStatus
+                GROUP BY EmployeeId
             )
-        ),
 
-        -- Calculate daily status for each employee
-        DailyStatus AS (
+            -- Final join with employee info
             SELECT
                 ed.EmployeeId,
                 ed.FirstName + ' ' + ed.LastName AS FullName,
                 ed.Department,
                 ed.Designation,
-                dr.Date,
-                CASE
-                    WHEN ah.Date IS NOT NULL THEN 'Holiday'
-                    WHEN EXISTS (
-                        SELECT 1 FROM DeptWeekends dw 
-                        WHERE dw.DepartmentId = ed.DepartmentId
-                        AND (dw.WeekendDay1 = DATEPART(WEEKDAY, dr.Date) OR 
-                             dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date))
-                    ) THEN 'Weekend'
-                    WHEN EXISTS (
-                        SELECT 1 FROM ApprovedLeaves al 
-                        WHERE al.EmployeeId = ed.Id
-                        AND dr.Date BETWEEN al.StartDate AND al.EndDate
-                    ) THEN 'Leave'
-                    WHEN EXISTS (
-                        SELECT 1 FROM Attendances a 
-                        WHERE a.EmployeeId = ed.EmployeeId
-                        AND CONVERT(DATE, a.CheckIn) = dr.Date
-                    ) THEN 'Present'
-                    ELSE 'Absent'
-                END AS Status
+                ISNULL(dc.TotalPresent, 0) AS TotalPresent,
+                ISNULL(dc.TotalLeave, 0) AS TotalLeave,
+                ISNULL(dc.TotalHoliday, 0) AS TotalHoliday,
+                ISNULL(dc.TotalWeekend, 0) AS TotalWeekend,
+                ISNULL(dc.TotalAbsent, 0) AS TotalAbsent
             FROM EmployeeDept ed
-            CROSS JOIN DateRange dr
-            LEFT JOIN ActiveHolidays ah ON dr.Date = ah.Date
-        )
+            LEFT JOIN DailyCounts dc ON ed.EmployeeId = dc.EmployeeId
+            ORDER BY FullName";
 
-        -- Final aggregation
-        SELECT
-            EmployeeId,
-            FullName,
-            Department,
-            Designation,
-            SUM(CASE WHEN Status = 'Present' THEN 1 ELSE 0 END) AS TotalPresent,
-            SUM(CASE WHEN Status = 'Leave' THEN 1 ELSE 0 END) AS TotalLeave,
-            SUM(CASE WHEN Status = 'Holiday' THEN 1 ELSE 0 END) AS TotalHoliday,
-            SUM(CASE WHEN Status = 'Weekend' THEN 1 ELSE 0 END) AS TotalWeekend,
-            SUM(CASE WHEN Status = 'Absent' THEN 1 ELSE 0 END) AS TotalAbsent
-        FROM DailyStatus
-        GROUP BY EmployeeId, FullName, Department, Designation
-        ORDER BY FullName";
-
-            return (await _db.QueryAsync<AttendanceReportDto>(sql, new { FromDate = fromDate, ToDate = toDate })).ToList();
+            return (await _db.QueryAsync<AttendanceReportDto>(sql,
+                new { FromDate = fromDate, ToDate = toDate },
+                commandTimeout: 120)).ToList(); // 2 minute timeout per batch
         }
 
         public async Task<List<DailyAttendanceDto>> GetEmployeeAttendanceAsync(string employeeId, DateTime fromDate, DateTime toDate)
@@ -192,7 +254,15 @@ namespace HRMS.Application.Repository
                 SELECT 
                     StartDate,
                     EndDate,
-                    Type AS LeaveType
+                   CASE 
+                        WHEN Type = 0 THEN 'Sick'
+                        WHEN Type = 1 THEN 'Vacation'
+                        WHEN Type = 2 THEN 'Personal'
+                        WHEN Type = 3 THEN 'Maternity'
+                        WHEN Type = 4 THEN 'Paternity'
+                        WHEN Type = 5 THEN 'Bereavement'
+                        WHEN Type = 6 THEN 'Other'
+                    END AS LeaveType
                 FROM Leaves
                 WHERE EmployeeId = (SELECT Id FROM EmployeeInfo)
                 AND Status = 1 -- Approved
@@ -280,7 +350,7 @@ namespace HRMS.Application.Repository
                 Status,
                 StatusReason
             FROM DailyStatus
-            ORDER BY Date";
+            ORDER BY Date DESC";
 
             return (await _db.QueryAsync<DailyAttendanceDto>(sql, new
             {

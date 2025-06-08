@@ -44,6 +44,20 @@ namespace HRMS.Application.Services
                 return attendance.Status;
             }
 
+            // If Employee is null, use default working hours (8 hours)
+            if (attendance.Employee == null)
+            {
+                if (attendance.CheckOut.HasValue)
+                {
+                    var workDuration = attendance.CheckOut.Value - attendance.CheckIn;
+                    if (workDuration.TotalHours < 7) // Default required hours
+                    {
+                        return AttendanceStatus.HalfDay;
+                    }
+                }
+                return attendance.Status;
+            }
+
             // Get working hours for the attendance date
             var workingHours = await GetWorkingHours(attendance.Employee.DepartmentId, attendance.CheckIn);
 
@@ -90,6 +104,19 @@ namespace HRMS.Application.Services
                 .FirstOrDefaultAsync(d => d.Id == departmentId);
 
             var isFriday = date.DayOfWeek == DayOfWeek.Friday;
+
+            // If department or working hours are missing, use defaults
+            if (department?.WorkingHours == null)
+            {
+                return new WorkingHoursInfo
+                {
+                    StartTime = isFriday ? new TimeSpan(9, 30, 0) : new TimeSpan(9, 0, 0),
+                    EndTime = isFriday ? new TimeSpan(13, 30, 0) : new TimeSpan(17, 0, 0),
+                    LateThreshold = isFriday ? new TimeSpan(9, 45, 0) : new TimeSpan(9, 30, 0),
+                    RequiredWorkHours = isFriday ? 4 : 8
+                };
+            }
+
             var workingHours = department?.WorkingHours;
 
             return new WorkingHoursInfo

@@ -13,7 +13,7 @@ namespace HRMS.Application.Models
         public int EmployeeId { get; set; }
 
         [ForeignKey("EmployeeId")]
-        public Employee Employee { get; set; }
+        public Employee? Employee { get; set; }
 
         [Required]
         public DateTime StartDate { get; set; }
@@ -30,7 +30,7 @@ namespace HRMS.Application.Models
         public LeaveStatus Status { get; set; } = LeaveStatus.Pending;
 
         public DateTime CreatedOn { get; set; } = DateTime.Now;
-        public string CreatedBy { get; set; }
+        public string? CreatedBy { get; set; }
         public DateTime? UpdatedOn { get; set; }
         public string? UpdatedBy { get; set; }
     }

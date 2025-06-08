@@ -10,7 +10,7 @@
     <hr />
     <form asp-action="Edit" method="post">
         <input type="hidden" asp-for="Id" />
-
+        <input type="hidden" asp-for="CreatedBy" />
         <div class="mb-3">
             <label asp-for="EmployeeId" class="form-label">Employee</label>
             <select asp-for="EmployeeId" class="form-select" asp-items="@(new SelectList(employees, "Id", "FullName", Model.EmployeeId))">

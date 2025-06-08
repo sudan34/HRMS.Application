@@ -35,10 +35,11 @@ namespace HRMS.Application.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Leave leave)
         {
+            leave.CreatedBy = User.Identity.Name;
+            leave.CreatedOn = DateTime.Now;
+
             if (ModelState.IsValid)
             {
-                leave.CreatedBy = User.Identity.Name;
-                leave.CreatedOn = DateTime.Now;
                 _context.Add(leave);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -68,9 +69,26 @@ namespace HRMS.Application.Controllers
             {
                 try
                 {
-                    leave.UpdatedBy = User.Identity.Name;
-                    leave.UpdatedOn = DateTime.Now;
-                    _context.Update(leave);
+                    var existingLeave = await _context.Leaves.FindAsync(id);
+                    if (existingLeave == null)
+                    {
+                        return NotFound();
+                    }
+
+                    // Update only the fields that should change
+                    existingLeave.EmployeeId = leave.EmployeeId;
+                    existingLeave.StartDate = leave.StartDate;
+                    existingLeave.EndDate = leave.EndDate;
+                    existingLeave.Type = leave.Type;
+                    existingLeave.Status = leave.Status;
+                    existingLeave.Reason = leave.Reason;
+
+                    // Update audit fields
+                    existingLeave.UpdatedBy = User.Identity.Name;
+                    existingLeave.UpdatedOn = DateTime.Now;
+
+                    // Mark as modified and save
+                    _context.Update(existingLeave);
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)

@@ -23,6 +23,7 @@ namespace HRMS.Application.ViewComponents
         }
         public async Task<IViewComponentResult> InvokeAsync(DateTime fromDate, DateTime toDate)
         {
+            // Use the default batch size (30 days)
             var reportData = await _attendanceRepo.GetAttendanceSummaryAsync(fromDate, toDate);
 
             // Map from DTO to ViewModel
