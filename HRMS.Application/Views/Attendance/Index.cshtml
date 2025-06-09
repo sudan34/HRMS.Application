@@ -178,31 +178,46 @@
             $('#syncForm').submit(function(e) {
                 e.preventDefault();
 
+                let seconds = 0;
+                const timerInterval = setInterval(() => {
+                    seconds++;
+                }, 1000);
+
                 Swal.fire({
                     title: 'Syncing with Device',
-                    html: 'Please wait while we sync attendance data...',
+                    html: 'Please wait while we sync attendance data...<br><br>Elapsed time: <span id="syncTimer">0</span> seconds',
                     allowOutsideClick: false,
                     didOpen: () => {
                         Swal.showLoading();
+
+                        // Update the timer every second
+                    const timerElement = document.getElementById('syncTimer');
+                    const timerUpdate = setInterval(() => {
+                        timerElement.textContent = seconds;
+                    }, 1000);
 
                         // Submit the form programmatically
                         $.ajax({
                             url: $(this).attr('action'),
                             method: 'POST',
                             success: function(response) {
+                                clearInterval(timerInterval);
+                                clearInterval(timerUpdate);
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Sync Complete',
-                                    text: 'Attendance data has been successfully synced!'
+                                    html: `Attendance data has been successfully synced!<br><br>Total time: ${seconds} seconds`
                                 }).then(() => {
                                     window.location.reload();
                                 });
                             },
                             error: function() {
+                                clearInterval(timerInterval);
+                                clearInterval(timerUpdate);
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Sync Failed',
-                                    text: 'There was an error syncing with the device'
+                                    html: `There was an error syncing with the device<br><br>Elapsed time: ${seconds} seconds`
                                 });
                             }
                         });
