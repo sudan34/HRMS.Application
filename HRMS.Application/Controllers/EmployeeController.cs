@@ -30,7 +30,7 @@ namespace HRMS.Application.Controllers
         }
 
         // GET: Employee/Details/5
-        [Authorize(Roles = "HR,SuperAdmin")]+
+        [Authorize(Roles = "HR,SuperAdmin")]
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
