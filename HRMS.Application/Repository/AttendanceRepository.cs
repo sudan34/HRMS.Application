@@ -231,7 +231,6 @@ namespace HRMS.Application.Repository
                 AND number <= DATEDIFF(DAY, @FromDate, @ToDate)
             ),
 
-            -- Changed CTE name to be more distinct from table name
             EmpDeptWeekends AS (
                 SELECT 
                     WeekendDay1,
@@ -254,7 +253,7 @@ namespace HRMS.Application.Repository
                 SELECT 
                     StartDate,
                     EndDate,
-                   CASE 
+                    CASE 
                         WHEN Type = 0 THEN 'Sick'
                         WHEN Type = 1 THEN 'Vacation'
                         WHEN Type = 2 THEN 'Personal'
@@ -299,10 +298,9 @@ namespace HRMS.Application.Repository
                         WHEN EXISTS (
                             SELECT 1 FROM EmpDeptWeekends dw 
                             WHERE dw.WeekendDay1 = DATEPART(WEEKDAY, dr.Date) OR 
-                                  dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date)
+                                    dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date)
                         ) THEN 'Weekend'
-                        WHEN al.StartDate IS NOT NULL THEN 'Leave'
-                        WHEN ea.CheckIn IS NOT NULL THEN
+                        WHEN ea.CheckIn IS NOT NULL THEN -- Check attendance first
                             CASE
                                 WHEN DATEPART(WEEKDAY, dr.Date) = 6 THEN -- Friday
                                     CASE
@@ -317,6 +315,7 @@ namespace HRMS.Application.Repository
                                         ELSE 'Present'
                                     END
                             END
+                        WHEN al.StartDate IS NOT NULL THEN 'Leave' -- Only mark as Leave if no attendance
                         ELSE 'Absent'
                     END AS Status,
                     CASE
@@ -324,9 +323,9 @@ namespace HRMS.Application.Repository
                         WHEN EXISTS (
                             SELECT 1 FROM EmpDeptWeekends dw 
                             WHERE dw.WeekendDay1 = DATEPART(WEEKDAY, dr.Date) OR 
-                                  dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date)
+                                    dw.WeekendDay2 = DATEPART(WEEKDAY, dr.Date)
                         ) THEN N'Weekend'
-                        WHEN al.StartDate IS NOT NULL THEN CAST(al.LeaveType AS NVARCHAR(100))
+                        WHEN ea.CheckIn IS NULL AND al.StartDate IS NOT NULL THEN CAST(al.LeaveType AS NVARCHAR(100))
                         ELSE NULL
                     END AS StatusReason
                 FROM DateRange dr

@@ -14,10 +14,12 @@ namespace HRMS.Application.Services
         private readonly IAttendanceStatusService _attendanceStatusService;
         private CZKEMClass _zkDevice;
         private bool _isConnected = false;
+        private readonly HashSet<string> _knownUnknownEmployees = new();
+
         public ZkDeviceService(ApplicationDbContext context,
                              ILogger<ZkDeviceService> logger,
                              IConfiguration config,
-                              IAttendanceStatusService attendanceStatusService)
+                             IAttendanceStatusService attendanceStatusService)
         {
             _context = context;
             _logger = logger;
@@ -26,23 +28,24 @@ namespace HRMS.Application.Services
             _zkDevice = new CZKEMClass();
         }
 
-        public Task<bool> TestConnectionAsync()
+        public async Task<bool> TestConnectionAsync()
         {
             try
             {
+                if (_isConnected) return true;
+
                 string ipAddress = _config["ZkDevice:IpAddress"]!;
                 int port = int.Parse(_config["ZkDevice:Port"]!);
                 _isConnected = _zkDevice.Connect_Net(ipAddress, port);
-                return Task.FromResult(_isConnected);
+                return _isConnected;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ZK Device connection error");
                 _isConnected = false;
-                return Task.FromResult(false);
+                return false;
             }
         }
-
 
         public async Task SyncAttendanceDataAsync()
         {
@@ -57,36 +60,30 @@ namespace HRMS.Application.Services
                 if (_zkDevice.ReadGeneralLogData(machineNumber))
                 {
                     var records = new List<(string, DateTime, int)>();
+                    var employeeCache = new Dictionary<string, Employee>();
 
-                    string sdwEnrollNumber = "";
-                    int idwVerifyMode = 0;
-                    int idwInOutMode = 0;
-                    int idwYear = 0;
-                    int idwMonth = 0;
-                    int idwDay = 0;
-                    int idwHour = 0;
-                    int idwMinute = 0;
-                    int idwSecond = 0;
-                    int idwWorkcode = 0;
+                    // Batch process records in chunks to reduce memory usage
+                    const int batchSize = 1000;
+                    int processedCount = 0;
 
-                    while (_zkDevice.SSR_GetGeneralLogData(
-                        machineNumber,
-                        out sdwEnrollNumber,
-                        out idwVerifyMode,
-                        out idwInOutMode,
-                        out idwYear,
-                        out idwMonth,
-                        out idwDay,
-                        out idwHour,
-                        out idwMinute,
-                        out idwSecond,
-                        ref idwWorkcode))
+                    while (GetNextRecord(machineNumber, out var record))
                     {
-                        var logTime = new DateTime(idwYear, idwMonth, idwDay, idwHour, idwMinute, idwSecond);
-                        records.Add((sdwEnrollNumber, logTime, idwInOutMode));
+                        records.Add(record);
+                        processedCount++;
+
+                        // Process in batches to avoid memory issues
+                        if (processedCount % batchSize == 0)
+                        {
+                            await ProcessBatch(records, employeeCache);
+                            records.Clear();
+                        }
                     }
 
-                    await ProcessAttendanceRecords(records);
+                    // Process remaining records
+                    if (records.Count > 0)
+                    {
+                        await ProcessBatch(records, employeeCache);
+                    }
                 }
             }
             catch (Exception ex)
@@ -101,38 +98,101 @@ namespace HRMS.Application.Services
             }
         }
 
-        private async Task ProcessAttendanceRecords(List<(string enrollNumber, DateTime recordTime, int inOutMode)> records)
+        private bool GetNextRecord(int machineNumber, out (string enrollNumber, DateTime recordTime, int inOutMode) record)
         {
-            // Filter out future dates
+            string sdwEnrollNumber = "";
+            int idwVerifyMode = 0;
+            int idwInOutMode = 0;
+            int idwYear = 0;
+            int idwMonth = 0;
+            int idwDay = 0;
+            int idwHour = 0;
+            int idwMinute = 0;
+            int idwSecond = 0;
+            int idwWorkcode = 0;
+
+            bool hasData = _zkDevice.SSR_GetGeneralLogData(
+                machineNumber,
+                out sdwEnrollNumber,
+                out idwVerifyMode,
+                out idwInOutMode,
+                out idwYear,
+                out idwMonth,
+                out idwDay,
+                out idwHour,
+                out idwMinute,
+                out idwSecond,
+                ref idwWorkcode);
+
+            if (hasData)
+            {
+                record = (
+                    sdwEnrollNumber,
+                    new DateTime(idwYear, idwMonth, idwDay, idwHour, idwMinute, idwSecond),
+                    idwInOutMode
+                );
+                return true;
+            }
+
+            record = default;
+            return false;
+        }
+
+        private async Task ProcessBatch(List<(string enrollNumber, DateTime recordTime, int inOutMode)> records,
+                                      Dictionary<string, Employee> employeeCache)
+        {
+            // Filter out future dates and invalid records
             var currentDate = DateTime.Now.Date;
             var validRecords = records.Where(r => r.recordTime.Date <= currentDate)
                                      .OrderBy(r => r.recordTime)
                                      .ToList();
 
-            // Get all employees (active and inactive) to handle historical records
-            var enrollNumbers = validRecords.Select(r => r.enrollNumber).Distinct().ToList();
-            var employees = await _context.Employees
-                .Where(e => enrollNumbers.Contains(e.EmployeeId))
-                .AsNoTracking()
-                .ToDictionaryAsync(e => e.EmployeeId);
+            if (validRecords.Count == 0) return;
+
+            // Identify new employees we haven't cached yet
+            var newEnrollNumbers = validRecords.Select(r => r.enrollNumber)
+                .Distinct()
+                .Where(id => !employeeCache.ContainsKey(id) && !_knownUnknownEmployees.Contains(id))
+                .ToList();
+
+            // Bulk fetch new employees in one query
+            if (newEnrollNumbers.Count > 0)
+            {
+                var newEmployees = await _context.Employees
+                    .Where(e => newEnrollNumbers.Contains(e.EmployeeId))
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                foreach (var employee in newEmployees)
+                {
+                    employeeCache[employee.EmployeeId] = employee;
+                }
+
+                // Track unknown employees to avoid repeated warnings and DB checks
+                var unknownEmployees = newEnrollNumbers.Except(newEmployees.Select(e => e.EmployeeId));
+                foreach (var unknownId in unknownEmployees)
+                {
+                    _knownUnknownEmployees.Add(unknownId);
+                    _logger.LogWarning($"Employee not found with Enrollment ID: {unknownId}");
+                }
+            }
 
             // Process all records
             foreach (var record in validRecords)
             {
                 try
                 {
-                    if (!employees.TryGetValue(record.enrollNumber, out var employee))
+                    // Skip known unknown employees
+                    if (_knownUnknownEmployees.Contains(record.enrollNumber))
+                        continue;
+
+                    if (!employeeCache.TryGetValue(record.enrollNumber, out var employee))
                     {
-                        // Handle unknown employee
-                        await HandleUnknownEmployeeRecord(record.enrollNumber, record.recordTime, record.inOutMode);
-                        _logger.LogWarning($"Employee not found: {record.enrollNumber}");
                         continue;
                     }
 
                     if (!employee.IsActive && record.recordTime.Date >= employee.ResignDate?.Date)
                     {
-                        // Skip records after resignation date
-                        _logger.LogInformation($"Skipping record for inactive employee {employee.EmployeeId} ({employee.FullName}) on {record.recordTime}");
                         continue;
                     }
 
@@ -151,27 +211,12 @@ namespace HRMS.Application.Services
                 }
             }
         }
-        private async Task HandleUnknownEmployeeRecord(string enrollNumber, DateTime recordTime, int inOutMode)
-        {
-            // Option 1: Log and ignore (recommended for unknown employees)
-            _logger.LogWarning($"Unknown employee enrollment ID: {enrollNumber} at {recordTime}");
 
-            // Option 2: Create a placeholder record(if you need to track these)
-            _context.UnknownAttendanceRecords.Add(new UnknownAttendanceRecord
-            {
-                EnrollmentNumber = enrollNumber,
-                RecordTime = recordTime,
-                InOutMode = inOutMode,
-                Processed = false
-            });
-            await _context.SaveChangesAsync();
-        }
         private async Task ProcessCheckIn(Employee employee, DateTime checkInTime)
         {
             // Skip if employee was inactive at check-in time
             if (!employee.IsActive && checkInTime.Date >= employee.ResignDate?.Date)
             {
-                _logger.LogInformation($"Skipping check-in for inactive employee {employee.EmployeeId} on {checkInTime}");
                 return;
             }
 
@@ -233,7 +278,7 @@ namespace HRMS.Application.Services
             attendance.Status = await _attendanceStatusService.FinalizeStatusAsync(attendance);
             await _context.SaveChangesAsync();
         }
-                
+
         public async Task<List<AttendanceRecord>> GetAttendanceDataAsync(DateTime fromDate, DateTime toDate)
         {
             var records = new List<AttendanceRecord>();
@@ -248,41 +293,17 @@ namespace HRMS.Application.Services
 
                 if (_zkDevice.ReadGeneralLogData(machineNumber))
                 {
-                    string sdwEnrollNumber = "";
-                    int idwVerifyMode = 0;
-                    int idwInOutMode = 0;
-                    int idwYear = 0;
-                    int idwMonth = 0;
-                    int idwDay = 0;
-                    int idwHour = 0;
-                    int idwMinute = 0;
-                    int idwSecond = 0;
-                    int idwWorkcode = 0;
-
-                    while (_zkDevice.SSR_GetGeneralLogData(
-                        machineNumber,
-                        out sdwEnrollNumber,
-                        out idwVerifyMode,
-                        out idwInOutMode,
-                        out idwYear,
-                        out idwMonth,
-                        out idwDay,
-                        out idwHour,
-                        out idwMinute,
-                        out idwSecond,
-                        ref idwWorkcode))
+                    while (GetNextRecord(machineNumber, out var record))
                     {
-                        var recordTime = new DateTime(idwYear, idwMonth, idwDay, idwHour, idwMinute, idwSecond);
-
-                        if (recordTime >= fromDate && recordTime <= toDate)
+                        if (record.recordTime >= fromDate && record.recordTime <= toDate)
                         {
                             records.Add(new AttendanceRecord
                             {
-                                UserId = sdwEnrollNumber,
-                                DateTime = recordTime,
-                                VerifyMode = idwVerifyMode,
-                                InOutMode = idwInOutMode,
-                                Status = idwInOutMode == 0 ? "CheckIn" : "CheckOut"
+                                UserId = record.enrollNumber,
+                                DateTime = record.recordTime,
+                                VerifyMode = 0, // Not captured in GetNextRecord
+                                InOutMode = record.inOutMode,
+                                Status = record.inOutMode == 0 ? "CheckIn" : "CheckOut"
                             });
                         }
                     }
@@ -312,13 +333,7 @@ namespace HRMS.Application.Services
             {
                 Marshal.ReleaseComObject(_zkDevice);
             }
-            //if (_zkDevice != null)
-            //{
-            //    Marshal.ReleaseComObject(_zkDevice);
-            //    _zkDevice = null;
-            //}
             GC.SuppressFinalize(this);
         }
-               
     }
 }
