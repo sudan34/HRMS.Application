@@ -4,6 +4,7 @@ using HRMS.Application.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HRMS.Application.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250619091058_PendingChanages")]
+    partial class PendingChanages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -161,6 +164,9 @@ namespace HRMS.Application.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int>("EmployeeId1")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("GeneratedOn")
                         .HasColumnType("datetime2");
 
@@ -190,7 +196,7 @@ namespace HRMS.Application.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeId");
+                    b.HasIndex("EmployeeId1");
 
                     b.ToTable("AttendanceSummaries");
                 });
@@ -624,8 +630,7 @@ namespace HRMS.Application.Migrations
                 {
                     b.HasOne("HRMS.Application.Models.Employee", "Employee")
                         .WithMany()
-                        .HasForeignKey("EmployeeId")
-                        .HasPrincipalKey("EmployeeId")
+                        .HasForeignKey("EmployeeId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

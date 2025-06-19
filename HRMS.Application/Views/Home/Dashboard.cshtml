@@ -114,9 +114,9 @@
                         <table class="table table-bordered table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th>#</th>
+                                    <th>S.N.</th>
                                     <th>Employee</th>
-                                    <th>Department</th>
+                                    @* <th>Department</th> *@
                                     <th>Check In</th>
                                     <th>Check Out</th>
                                     <th>Working Hours</th>
@@ -138,13 +138,13 @@
                                                             @item.Employee.FullName.Split(' ').Select(x => x[0]).FirstOrDefault()
                                                         </span>
                                                     </div>
+                                                   
                                                     <div>
                                                         <div class="fw-bold">@item.Employee.FullName</div>
-                                                        <div class="text-muted small">@item.Employee.Department</div>
+                                                        <div class="text-muted small">@item.Employee.Department?.Name</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td>@item.Employee.Department?.Name</td>
                                             <td>@item.CheckIn.ToShortTimeString()</td>
                                             <td>@(item.CheckOut?.ToShortTimeString() ?? "-")</td>
                                             <td>
@@ -222,7 +222,7 @@
             </div>
         </div>
         <!-- Recent Activities and Upcoming Leaves -->
-          @* <div class="col-lg-4">
+        @* <div class="col-lg-4">
             <!-- Recent Activities -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white border-bottom">
@@ -304,7 +304,7 @@
                 </div>
             </div>
         </div> *@
-    </div> 
+    </div>
 </div>
 
 @section Scripts {
@@ -316,35 +316,38 @@
             type: 'bar',
             data: {
                 labels: @Html.Raw(Json.Serialize(Model.ChartDays)),
-                datasets: [
-                    {
-                        label: 'Present',
-                        data: @Html.Raw(Json.Serialize(Model.PresentData)),
-                        backgroundColor: 'rgba(67, 97, 238, 0.8)',
-                        borderColor: 'rgba(67, 97, 238, 1)',
-                        borderWidth: 0,
-                        borderRadius: 8,
-                        borderSkipped: false,
-                    },
-                    {
-                        label: 'Absent',
-                        data: @Html.Raw(Json.Serialize(Model.AbsentData)),
-                        backgroundColor: 'rgba(239, 35, 60, 0.8)',
-                        borderColor: 'rgba(239, 35, 60, 1)',
-                        borderWidth: 0,
-                        borderRadius: 8,
-                        borderSkipped: false,
-                    },
-                    {
-                        label: 'Late',
-                        data: @Html.Raw(Json.Serialize(Model.LateData)),
-                        backgroundColor: 'rgba(248, 150, 30, 0.8)',
-                        borderColor: 'rgba(248, 150, 30, 1)',
-                        borderWidth: 0,
-                        borderRadius: 8,
-                        borderSkipped: false,
-                    }
-                ]
+            
+            datasets: [
+            {
+                label: 'Present',
+                data: @Html.Raw(Json.Serialize(Model.PresentData)),
+                backgroundColor: 'rgba(52, 152, 219, 0.8)',     // Modern Blue
+                borderColor: 'rgba(52, 152, 219, 1)',
+                borderWidth: 0,
+                borderRadius: 8,
+                borderSkipped: false,
+            },
+            {
+                label: 'Absent',
+                data: @Html.Raw(Json.Serialize(Model.AbsentData)),
+                backgroundColor: 'rgba(231, 76, 60, 0.8)',       // Soft Red
+                borderColor: 'rgba(231, 76, 60, 1)',
+                borderWidth: 0,
+                borderRadius: 8,
+                borderSkipped: false,
+            },
+            {
+                label: 'Late',
+                data: @Html.Raw(Json.Serialize(Model.LateData)),
+                backgroundColor: 'rgba(241, 196, 15, 0.8)',      // Amber Gold
+                borderColor: 'rgba(241, 196, 15, 1)',
+                borderWidth: 0,
+                borderRadius: 8,
+                borderSkipped: false,
+            }
+        ]
+
+
             },
             options: {
                 responsive: true,

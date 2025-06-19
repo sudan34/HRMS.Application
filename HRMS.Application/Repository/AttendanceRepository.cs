@@ -330,7 +330,7 @@ namespace HRMS.Application.Repository
                     END AS StatusReason
                 FROM DateRange dr
                 LEFT JOIN EmpHolidays h ON dr.Date = h.Date
-                LEFT JOIN ApprovedLeaves al ON dr.Date BETWEEN al.StartDate AND al.EndDate
+                LEFT JOIN ApprovedLeaves al ON dr.Date BETWEEN al.StartDate AND al.EndDate --check here
                 LEFT JOIN EmployeeAttendance ea ON dr.Date = ea.Date
             )
 

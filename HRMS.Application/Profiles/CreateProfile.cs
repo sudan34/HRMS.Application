@@ -1,7 +1,6 @@
 ﻿using AutoMapper;
 using HRMS.Application.DTOs;
 using HRMS.Application.Models;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace HRMS.Application.Profiles
 {

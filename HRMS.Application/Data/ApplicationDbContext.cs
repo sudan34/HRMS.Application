@@ -50,6 +50,12 @@ namespace HRMS.Application.Data
                     .HasDefaultValueSql("GETDATE()");
             });
 
+            modelBuilder.Entity<AttendanceSummary>()
+                .HasOne(a => a.Employee)
+                .WithMany()
+                .HasPrincipalKey(e => e.EmployeeId) // Specify EmployeeId as the principal key
+                .HasForeignKey(a => a.EmployeeId); // Specify EmployeeId as the foreign key
+
             // Configure DepartmentWeekend
             modelBuilder.Entity<DepartmentWeekend>(entity =>
             {
