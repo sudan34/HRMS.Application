@@ -27,18 +27,21 @@ namespace HRMS.Application.Controllers
             var today = DateTime.Today; //.AddDays(-3);
             var lastWeek = today.AddDays(-6);
 
-            var allEmployees = await _context.Employees.ToListAsync();
+            var allEmployees = await _context.Employees
+                .Where(e => e.IsActive)
+                .ToListAsync();
             var totalEmployees = allEmployees.Count;
 
             var todaysAttendance = await _context.Attendances
                 .Include(a => a.Employee)
                 .ThenInclude(e => e.Department)
-                .Where(a => a.CheckIn.Date == today)
+                .Where(a => a.CheckIn.Date == today && a.Employee.IsActive)
                 .ToListAsync();
 
             // Last 7 days attendance data for the chart
             var attendanceData = await _context.Attendances
-                .Where(a => a.CheckIn.Date >= lastWeek && a.CheckIn.Date <= today)
+                .Where(a => a.CheckIn.Date >= lastWeek && a.CheckIn.Date <= today && a.Employee.IsActive)
+                .Include(a => a.Employee)
                 .GroupBy(a => a.CheckIn.Date)
                 .Select(g => new AttendanceChartData
                 {

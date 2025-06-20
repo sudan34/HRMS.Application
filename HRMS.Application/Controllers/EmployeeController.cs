@@ -25,6 +25,8 @@ namespace HRMS.Application.Controllers
         {
             var employees = await _context.Employees
                 .Include(e => e.Department)
+                .OrderByDescending(e => e.IsActive)
+                .ThenBy(e => e.DepartmentId)
                 .ToListAsync();
             return View(employees);
         }

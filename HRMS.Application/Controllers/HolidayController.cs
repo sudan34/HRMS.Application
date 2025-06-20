@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HRMS.Application.Controllers
 {
-    [Authorize(Roles = "SuperAdmin")]
+    [Authorize]
     public class HolidayController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -21,6 +21,7 @@ namespace HRMS.Application.Controllers
         }
 
         // GET: Holiday/Calendar
+        [Authorize(Roles = "HR,SuperAdmin")]
         public async Task<IActionResult> Calendar(int? year, int? month)
         {
             // Get current date if no parameters provided
@@ -55,6 +56,7 @@ namespace HRMS.Application.Controllers
             return View(model);
         }
         // POST: Holiday/Add
+        [Authorize(Roles = "HR,SuperAdmin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Add(HolidayCreateViewModel model)
@@ -81,8 +83,8 @@ namespace HRMS.Application.Controllers
             TempData["ErrorMessage"] = "Failed to add holiday";
             return RedirectToAction(nameof(Calendar), new { year = model.Date.Year, month = model.Date.Month });
         }
-
         // POST: Holiday/Delete
+        [Authorize(Roles = "HR,SuperAdmin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id, int returnYear, int returnMonth)
